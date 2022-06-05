@@ -1,0 +1,2 @@
+rootProject.name = "Godot Android BLE Plugin"
+include ':app', ':blessed'
