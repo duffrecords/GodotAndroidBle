@@ -40,6 +40,7 @@ import static java.nio.ByteOrder.LITTLE_ENDIAN;
 public class BluetoothBytesParser {
 
     private static final String INVALID_OFFSET = "invalid offset";
+    private static final String INVALID_LENGTH = "invalid length";
     private static final String UNSUPPORTED_FORMAT_TYPE = "unsupported format type";
     private static final String OFFSET_MUST_BE_GREATER_OR_EQUAL_TO_ZERO = "offset must be greater or equal to zero";
     private int internalOffset;
@@ -69,6 +70,16 @@ public class BluetoothBytesParser {
      * Characteristic value format type uint32
      */
     public static final int FORMAT_UINT32 = 0x14;
+
+    /**
+     * Characteristic value format type uint48
+     */
+    public static final int FORMAT_UINT48 = 0x16;
+
+    /**
+     * Characteristic value format type uint64
+     */
+    public static final int FORMAT_UINT64 = 0x18;
 
     /**
      * Characteristic value format type sint8
@@ -178,8 +189,8 @@ public class BluetoothBytesParser {
      * @throws IllegalArgumentException if there are not enough bytes for a long value
      */
     @NotNull
-    public Long getLongValue() {
-        return getLongValue(internalByteOrder);
+    public Long getLongValue(final int formatType) {
+        return getLongValue(formatType, internalByteOrder);
     }
 
     /**
@@ -191,10 +202,10 @@ public class BluetoothBytesParser {
      * @throws NullPointerException if the value of byteOrder is null
      */
     @NotNull
-    public Long getLongValue(@NotNull final ByteOrder byteOrder) {
+    public Long getLongValue(final int formatType, @NotNull final ByteOrder byteOrder) {
         Objects.requireNonNull(byteOrder);
-        long result = getLongValue(internalOffset, byteOrder);
-        internalOffset += 8;
+        long result = getLongValue(formatType, internalOffset, byteOrder);
+        internalOffset += getTypeLen(formatType);
         return result;
     }
 
@@ -208,21 +219,23 @@ public class BluetoothBytesParser {
      * @throws NullPointerException if the value of byteOrder is null
      */
     @NotNull
-    public Long getLongValue(final int offset, @NotNull final ByteOrder byteOrder) {
+    public Long getLongValue(final int formatType, final int offset, @NotNull final ByteOrder byteOrder) {
         Objects.requireNonNull(byteOrder);
+        if (!(formatType == FORMAT_UINT48 | formatType == FORMAT_UINT64)) throw new IllegalArgumentException("format type not allowed");
+        int length = getTypeLen(formatType);
         if (offset < 0) throw new IllegalArgumentException(OFFSET_MUST_BE_GREATER_OR_EQUAL_TO_ZERO);
-        if ((offset + 8) > mValue.length) throw new IllegalArgumentException(INVALID_OFFSET);
+        if ((offset + length) > mValue.length) throw new IllegalArgumentException(INVALID_OFFSET);
 
         if (byteOrder == LITTLE_ENDIAN) {
-            long value = 0x00FF & mValue[offset + 7];
-            for (int i = 6; i >= 0; i--) {
+            long value = 0x00FF & mValue[offset + length - 1];
+            for (int i = length - 2; i >= 0; i--) {
                 value <<= 8;
                 value += 0x00FF & mValue[i + offset];
             }
             return value;
         } else if (byteOrder == BIG_ENDIAN) {
             long value = 0x00FF & mValue[offset];
-            for (int i = 1; i < 8; i++) {
+            for (int i = 1; i < length; i++) {
                 value <<= 8;
                 value += 0x00FF & mValue[i + offset];
             }
@@ -414,8 +427,34 @@ public class BluetoothBytesParser {
         return getStringValue(internalOffset);
     }
 
+    public String getStringOfLength(int length) {
+        if (length <= 0) throw new IllegalArgumentException(INVALID_LENGTH);
+        if (mValue == null || internalOffset + length > mValue.length) throw new IllegalArgumentException(INVALID_LENGTH);
+
+        byte[] strBytes = new byte[length];
+        System.arraycopy(mValue, internalOffset, strBytes, 0, length);
+
+        internalOffset += length;
+        return bytesToString(strBytes);
+    }
+
     /**
-     * Return a String from this byte array. This operation will not advance the internal offset to the next position.
+     * Convert byte array to string using 0x00 as end of string character
+     *
+     * @param strBytes the byte array to convert to String
+     * @return the String representation of these bytes
+     */
+    public static String bytesToString(byte[] strBytes) {
+        // Find zero byte, if any
+        int j = 0;
+        while (j < strBytes.length && (strBytes[j] != 0)) j++;
+
+        // Convert to string
+        return new String(strBytes, 0, j, StandardCharsets.ISO_8859_1);
+    }
+
+    /**
+     * Return a String from this byte array. This operation will not advance the internal offset to the next position. Trailing spaces are being trimmed
      *
      * @param offset Offset at which the string value can be found.
      * @return String value represented by the byte array
@@ -427,8 +466,9 @@ public class BluetoothBytesParser {
         if (mValue == null || offset > mValue.length) throw new IllegalArgumentException(INVALID_OFFSET);
 
         // Copy all bytes
-        byte[] strBytes = new byte[mValue.length - offset];
-        for (int i = 0; i != (mValue.length - offset); ++i) strBytes[i] = mValue[offset + i];
+        int length = mValue.length - offset;
+        byte[] strBytes = new byte[length];
+        System.arraycopy(mValue, offset, strBytes, 0, length);
 
         // Get rid of trailing zero/space bytes
         int j = strBytes.length;
@@ -595,31 +635,36 @@ public class BluetoothBytesParser {
      * Set byte array to a long. This will increment the internal offset
      *
      * @param value New long value for this byte array
+     * @param formatType Long format type used to transform the value parameter
      */
-    public void setLong(final long value) {
-        setLong(value, internalOffset);
-        internalOffset += 8;
+    public void setLong(final long value, final int formatType) {
+        setLong(value, formatType, internalOffset);
+        internalOffset += getTypeLen(formatType);
     }
 
     /**
      * Set byte array to a long
      *
      * @param value  New long value for this byte array
+     * @param formatType Long format type used to transform the value parameter
      * @param offset Offset at which the value should be placed
      * @throws IllegalArgumentException if the offset is invalid
      */
-    public void setLong(final long value, final int offset) {
+    public void setLong(final long value, final int formatType, final int offset) {
         if (offset < 0) throw new IllegalArgumentException(OFFSET_MUST_BE_GREATER_OR_EQUAL_TO_ZERO);
-        prepareArray(offset + 8);
+        if (!(formatType == FORMAT_UINT48 | formatType == FORMAT_UINT64)) throw new IllegalArgumentException("format type not allowed");
+
+        int length = getTypeLen(formatType);
+        prepareArray(offset + length);
 
         long newValue = value;
         if (internalByteOrder == ByteOrder.BIG_ENDIAN) {
-            for (int i = 7; i >= 0; i--) {
+            for (int i = length - 1; i >= 0; i--) {
                 mValue[i + offset] = (byte) (newValue & 0xFF);
                 newValue >>= 8;
             }
         } else {
-            for (int i = 0; i < 8; i++) {
+            for (int i = 0; i < length; i++) {
                 mValue[i + offset] = (byte) (newValue & 0xFF);
                 newValue >>= 8;
             }
@@ -664,9 +709,9 @@ public class BluetoothBytesParser {
                     mValue[newOffset++] = (byte) (newMantissa & 0xFF);
                     mValue[newOffset++] = (byte) ((newMantissa >> 8) & 0xFF);
                     mValue[newOffset++] = (byte) ((newMantissa >> 16) & 0xFF);
-                    mValue[newOffset] += (byte) (newExponent & 0xFF);
+                    mValue[newOffset] = (byte) (newExponent & 0xFF);
                 } else {
-                    mValue[newOffset++] += (byte) (newExponent & 0xFF);
+                    mValue[newOffset++] = (byte) (newExponent & 0xFF);
                     mValue[newOffset++] = (byte) ((newMantissa >> 16) & 0xFF);
                     mValue[newOffset++] = (byte) ((newMantissa >> 8) & 0xFF);
                     mValue[newOffset] = (byte) (newMantissa & 0xFF);
@@ -687,6 +732,18 @@ public class BluetoothBytesParser {
         float mantissa = (float) (value * Math.pow(10, precision));
         setFloatValue((int) mantissa, -precision, FORMAT_FLOAT, internalOffset);
         internalOffset += getTypeLen(FORMAT_FLOAT);
+    }
+
+    /**
+     * Set byte array to a SFloat using a given precision, i.e. number of digits after the comma
+     *
+     * @param value     SFloat value to create byte[] from
+     * @param precision number of digits after the comma to use
+     */
+    public void setSFloatValue(final float value, final int precision) {
+        float mantissa = (float) (value * Math.pow(10, precision));
+        setFloatValue((int) mantissa, -precision, FORMAT_SFLOAT, internalOffset);
+        internalOffset += getTypeLen(FORMAT_SFLOAT);
     }
 
     /**
@@ -856,17 +913,27 @@ public class BluetoothBytesParser {
     }
 
     /**
-     * Convert a byte array to a string
+     * Convert a byte array to a hex string
      *
      * @param bytes the bytes to convert
      * @return String object that represents the byte array
      */
     @NotNull
-    public static String bytes2String(@Nullable final byte[] bytes) {
+    public static String asHexString(@Nullable final byte[] bytes) {
+        return asHexString(bytes, "");
+    }
+
+    @NotNull
+    public static String asHexString(@Nullable final byte[] bytes, @NotNull final String separator) {
         if (bytes == null) return "";
         StringBuilder sb = new StringBuilder();
+        int index = 0;
         for (byte b : bytes) {
             sb.append(String.format("%02x", b & 0xff));
+            if (index < (bytes.length - 1)) {
+                sb.append(separator);
+            }
+            index++;
         }
         return sb.toString();
     }
@@ -943,6 +1010,94 @@ public class BluetoothBytesParser {
 
     @Override
     public String toString() {
-        return bytes2String(mValue);
+        return asHexString(mValue);
+    }
+
+    /**
+     * New style of convenience methods to get values
+     */
+
+    public @NotNull Integer getUInt8() {
+        return getIntValue(FORMAT_UINT8);
+    }
+
+    public @NotNull Integer getSInt8() {
+        return getIntValue(FORMAT_SINT8);
+    }
+
+    public @NotNull Integer getUInt16() {
+        return getIntValue(FORMAT_UINT16);
+    }
+
+    public @NotNull Integer getSInt16() {
+        return getIntValue(FORMAT_SINT16);
+    }
+
+    public @NotNull Integer getUInt24() {
+        return getIntValue(FORMAT_UINT24);
+    }
+
+    public @NotNull Integer getSInt24() {
+        return getIntValue(FORMAT_SINT24);
+    }
+
+    public @NotNull Integer getUInt32() {
+        return getIntValue(FORMAT_UINT32);
+    }
+
+    public @NotNull Integer getSInt32() {
+        return getIntValue(FORMAT_SINT32);
+    }
+
+    public @NotNull Long getUInt48() {
+        return getLongValue(FORMAT_UINT48);
+    }
+
+    public @NotNull Long getUInt64() {
+        return getLongValue(FORMAT_UINT64);
+    }
+
+    public @NotNull Float getFloat() {
+        return getFloatValue(FORMAT_FLOAT);
+    }
+
+    public @NotNull Float getSFloat() {
+        return getFloatValue(FORMAT_SFLOAT);
+    }
+
+    public void setUInt8(int value) {
+        setIntValue(value, FORMAT_UINT8);
+    }
+
+    public void setSInt8(int value) {
+        setIntValue(value, FORMAT_SINT8);
+    }
+
+    public void setUInt16(int value) {
+        setIntValue(value, FORMAT_UINT16);
+    }
+
+    public void setSInt16(int value) {
+        setIntValue(value, FORMAT_SINT16);
+    }
+
+    public void setUInt32(int value) {
+        setIntValue(value, FORMAT_UINT32);
+    }
+
+    public void setSInt32(int value) {
+        setIntValue(value, FORMAT_SINT32);
+    }
+
+    public void setUInt48(long value) {
+        setLong(value, FORMAT_UINT48);
+    }
+
+    public void setUInt64(long value) {
+        setLong(value, FORMAT_UINT64);
+    }
+
+    public @NotNull Integer peekIntValue(final int formatType) {
+        return getIntValue(formatType, internalOffset, internalByteOrder);
     }
 }

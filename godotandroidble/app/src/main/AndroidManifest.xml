@@ -2,11 +2,30 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     package="com.duffrecords.godotandroidble">
 
-    <uses-permission android:name="android.permission.BLUETOOTH" />
-    <uses-permission android:name="android.permission.BLUETOOTH_ADMIN" android:maxSdkVersion="29" />
-    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" android:maxSdkVersion="29" />
-    <uses-permission android:name="android.permission.BLUETOOTH_CONNECT" android:minSdkVersion="30" />
-    <uses-permission android:name="android.permission.BLUETOOTH_SCAN" android:minSdkVersion="30" />
+    <!-- Request legacy Bluetooth permissions on older devices. -->
+    <uses-permission
+        android:name="android.permission.BLUETOOTH"
+        android:maxSdkVersion="30" />
+    <uses-permission
+        android:name="android.permission.BLUETOOTH_ADMIN"
+        android:maxSdkVersion="30" />
+    <!-- Needed only if your app communicates with already-paired Bluetooth
+         devices. -->
+    <uses-permission android:name="android.permission.BLUETOOTH_CONNECT" />
+    <!-- Needed only if your app looks for Bluetooth devices.
+         If your app doesn't use Bluetooth scan results to derive physical
+         location information, you can strongly assert that your app
+         doesn't derive physical location. -->
+    <uses-permission
+        android:name="android.permission.BLUETOOTH_SCAN"
+        android:usesPermissionFlags="neverForLocation" />
+    <!-- Needed only if your app makes the device discoverable to Bluetooth
+    <uses-permission android:name="android.permission.BLUETOOTH_ADVERTISE" />
+         devices. -->
+    <!-- Needed only if your app uses Bluetooth scan results to derive physical location.
+    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
+    -->
+    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
 
     <application
         android:allowBackup="true"

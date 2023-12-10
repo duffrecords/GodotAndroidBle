@@ -23,35 +23,37 @@
 
 package com.welie.blessed;
 
+import android.annotation.SuppressLint;
+import android.bluetooth.BluetoothDevice;
+
 import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
 
 import java.util.Objects;
 
 /**
  * This class represent a remote Central
  */
+@SuppressLint("MissingPermission")
 public class BluetoothCentral {
 
-    @NotNull
-    private final String address;
-
-    @Nullable
-    private final String name;
+    @NotNull protected final BluetoothDevice device;
 
     private int currentMtu = 23;
 
-    BluetoothCentral(@NotNull String address, @Nullable String name) {
-        this.address = Objects.requireNonNull(address, "address is null");
-        this.name = name;
+    BluetoothCentral(@NotNull BluetoothDevice device) {
+        this.device = device;
     }
 
     public @NotNull String getAddress() {
-        return address;
+        return device.getAddress();
     }
 
     public @NotNull String getName() {
-        return name == null ? "" : name;
+        return device.getName() == null ? "" : device.getName();
+    }
+
+    public BondState getBondState() {
+        return BondState.fromValue(device.getBondState());
     }
 
     protected void setCurrentMtu(final int currentMtu) {
@@ -61,6 +63,10 @@ public class BluetoothCentral {
     public int getCurrentMtu() {
         return currentMtu;
     }
+
+    public boolean createBond() { return device.createBond(); }
+
+    public boolean setPairingConfirmation(Boolean confirm) { return device.setPairingConfirmation(confirm); }
 
     /**
      * Get maximum length of byte array that can be written depending on WriteType
@@ -78,5 +84,18 @@ public class BluetoothCentral {
             default:
                 return currentMtu - 3;
         }
+    }
+
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) return true;
+        if (o == null || getClass() != o.getClass()) return false;
+        BluetoothCentral that = (BluetoothCentral) o;
+        return device.getAddress().equals(that.device.getAddress());
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hash(device);
     }
 }

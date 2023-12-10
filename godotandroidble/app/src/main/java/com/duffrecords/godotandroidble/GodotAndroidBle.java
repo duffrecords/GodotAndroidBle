@@ -76,7 +76,7 @@ import static android.bluetooth.BluetoothGattCharacteristic.PROPERTY_WRITE;
 import static com.welie.blessed.BluetoothBytesParser.FORMAT_SINT16;
 import static com.welie.blessed.BluetoothBytesParser.FORMAT_UINT16;
 import static com.welie.blessed.BluetoothBytesParser.FORMAT_UINT8;
-import static com.welie.blessed.BluetoothBytesParser.bytes2String;
+import static com.welie.blessed.BluetoothBytesParser.bytesToString;
 
 import static java.lang.Math.abs;
 
@@ -221,24 +221,27 @@ public class GodotAndroidBle extends GodotPlugin {
         Log.i(TAG, "in getPluginSignals");
         Set<SignalInfo> signals = new ArraySet<>();
 
-        // signals.add(new SignalInfo("on_disconnected", String.class, String.class));
-        // signals.add(new SignalInfo("on_data_received_string", Object.class));
+        signals.add(new SignalInfo("on_disconnected", String.class, String.class));
+        signals.add(new SignalInfo("on_data_received_string", Object.class));
         signals.add(new SignalInfo("status_logged", String.class));
         signals.add(new SignalInfo("on_cycling_measurement", Integer.class, Integer.class));
-        signals.add(new SignalInfo("on_blood_pressure_measurement", Object.class));
-        signals.add(new SignalInfo("on_temperature_measurement", Object.class));
-        signals.add(new SignalInfo("on_heart_rate_measurement", Object.class));
-        signals.add(new SignalInfo("on_pulse_ox_continuous_measurement", Object.class));
-        signals.add(new SignalInfo("on_pulse_ox_spot_measurement", Object.class));
-        signals.add(new SignalInfo("on_weight_measurement", Object.class));
-        signals.add(new SignalInfo("on_glucose_measurement", Object.class));
-        // signals.add(new SignalInfo("on_single_device_found", String.class, String.class, String.class));
-//        signals.add(new SignalInfo("on_disconnected_from_pair"));
-        // signals.add(new SignalInfo("on_connected", String.class, String.class));
-        // signals.add(new SignalInfo("on_connected_error"));
-        // signals.add(new SignalInfo("on_received_connection", String.class, String.class));
-        // signals.add(new SignalInfo("on_getting_uuid", String.class));
-        // signals.add(new SignalInfo("on_devices_found", Object.class, Object.class));
+        // signals.add(new SignalInfo("on_blood_pressure_measurement", Object.class));
+        // signals.add(new SignalInfo("on_temperature_measurement", Object.class));
+        // signals.add(new SignalInfo("on_heart_rate_measurement", Object.class));
+        // signals.add(new SignalInfo("on_pulse_ox_continuous_measurement", Object.class));
+        // signals.add(new SignalInfo("on_pulse_ox_spot_measurement", Object.class));
+        // signals.add(new SignalInfo("on_weight_measurement", Object.class));
+        // signals.add(new SignalInfo("on_glucose_measurement", Object.class));
+        signals.add(new SignalInfo("on_single_device_found", String.class, String.class, String.class));
+        signals.add(new SignalInfo("on_disconnected_from_pair"));
+        signals.add(new SignalInfo("on_connected", String.class, String.class));
+        signals.add(new SignalInfo("on_connected_error"));
+        signals.add(new SignalInfo("on_received_connection", String.class, String.class));
+        signals.add(new SignalInfo("on_getting_uuid", String.class));
+        signals.add(new SignalInfo("on_devices_found", Object.class, Object.class));
+        signals.add(new SignalInfo("on_battery_level", Integer.class));
+        signals.add(new SignalInfo("on_manufacturer_name", String.class));
+        signals.add(new SignalInfo("on_model_number", String.class));
 
         return signals;
     }
@@ -289,7 +292,8 @@ public class GodotAndroidBle extends GodotPlugin {
         return bluetoothAdapter.isEnabled();
     }
 
-    private void initBluetoothHandler()
+    @UsedByGodot
+    public void initBluetoothHandler()
     {
         Log.i(TAG, "in initBluetoothHandler");
         // getInstance(activity.getApplicationContext());
@@ -447,7 +451,7 @@ public class GodotAndroidBle extends GodotPlugin {
             // emitSignal("status_logged", "checking permissions");
             String[] missingPermissions = getMissingPermissions(getRequiredPermissions());
             if (missingPermissions.length > 0) {
-                Log.i(TAG, "missing permissions: " + String.join(", ", missingPermissions));
+                //Log.i(TAG, "missing permissions: " + String.join(", ", missingPermissions));
                 activity.requestPermissions(missingPermissions, ACCESS_LOCATION_REQUEST);
             } else {
                 permissionsGranted();
@@ -576,16 +580,16 @@ public class GodotAndroidBle extends GodotPlugin {
             // Try to turn on notifications for other characteristics
             peripheral.readCharacteristic(BTS_SERVICE_UUID, BATTERY_LEVEL_CHARACTERISTIC_UUID);
             peripheral.setNotify(CSC_SERVICE_UUID, CYCLING_SPEED_CADENCE_MEASUREMENT_CHARACTERISTIC_UUID, true);
-            peripheral.setNotify(BLP_SERVICE_UUID, BLOOD_PRESSURE_MEASUREMENT_CHARACTERISTIC_UUID, true);
-            peripheral.setNotify(HTS_SERVICE_UUID, TEMPERATURE_MEASUREMENT_CHARACTERISTIC_UUID, true);
-            peripheral.setNotify(HRS_SERVICE_UUID, HEARTRATE_MEASUREMENT_CHARACTERISTIC_UUID, true);
-            peripheral.setNotify(PLX_SERVICE_UUID, PLX_CONTINUOUS_MEASUREMENT_CHAR_UUID, true);
-            peripheral.setNotify(PLX_SERVICE_UUID, PLX_SPOT_MEASUREMENT_CHAR_UUID, true);
-            peripheral.setNotify(WSS_SERVICE_UUID, WSS_MEASUREMENT_CHAR_UUID, true);
-            peripheral.setNotify(GLUCOSE_SERVICE_UUID, GLUCOSE_MEASUREMENT_CHARACTERISTIC_UUID, true);
-            peripheral.setNotify(GLUCOSE_SERVICE_UUID, GLUCOSE_MEASUREMENT_CONTEXT_CHARACTERISTIC_UUID, true);
-            peripheral.setNotify(GLUCOSE_SERVICE_UUID, GLUCOSE_RECORD_ACCESS_POINT_CHARACTERISTIC_UUID, true);
-            peripheral.setNotify(CONTOUR_SERVICE_UUID, CONTOUR_CLOCK, true);
+            // peripheral.setNotify(BLP_SERVICE_UUID, BLOOD_PRESSURE_MEASUREMENT_CHARACTERISTIC_UUID, true);
+            // peripheral.setNotify(HTS_SERVICE_UUID, TEMPERATURE_MEASUREMENT_CHARACTERISTIC_UUID, true);
+            // peripheral.setNotify(HRS_SERVICE_UUID, HEARTRATE_MEASUREMENT_CHARACTERISTIC_UUID, true);
+            // peripheral.setNotify(PLX_SERVICE_UUID, PLX_CONTINUOUS_MEASUREMENT_CHAR_UUID, true);
+            // peripheral.setNotify(PLX_SERVICE_UUID, PLX_SPOT_MEASUREMENT_CHAR_UUID, true);
+            // peripheral.setNotify(WSS_SERVICE_UUID, WSS_MEASUREMENT_CHAR_UUID, true);
+            // peripheral.setNotify(GLUCOSE_SERVICE_UUID, GLUCOSE_MEASUREMENT_CHARACTERISTIC_UUID, true);
+            // peripheral.setNotify(GLUCOSE_SERVICE_UUID, GLUCOSE_MEASUREMENT_CONTEXT_CHARACTERISTIC_UUID, true);
+            // peripheral.setNotify(GLUCOSE_SERVICE_UUID, GLUCOSE_RECORD_ACCESS_POINT_CHARACTERISTIC_UUID, true);
+            // peripheral.setNotify(CONTOUR_SERVICE_UUID, CONTOUR_CLOCK, true);
         }
 
         @Override
@@ -606,9 +610,9 @@ public class GodotAndroidBle extends GodotPlugin {
         @Override
         public void onCharacteristicWrite(@NotNull BluetoothPeripheral peripheral, @NotNull byte[] value, @NotNull BluetoothGattCharacteristic characteristic, @NotNull GattStatus status) {
             if (status == GattStatus.SUCCESS) {
-                Log.i(TAG, String.format("SUCCESS: Writing <%s> to <%s>", bytes2String(value), characteristic.getUuid()));
+                Log.i(TAG, String.format("SUCCESS: Writing <%s> to <%s>", bytesToString(value), characteristic.getUuid()));
             } else {
-                Log.i(TAG, String.format("ERROR: Failed writing <%s> to <%s> (%s)", bytes2String(value), characteristic.getUuid(), status));
+                Log.i(TAG, String.format("ERROR: Failed writing <%s> to <%s> (%s)", bytesToString(value), characteristic.getUuid(), status));
             }
         }
 
@@ -692,12 +696,15 @@ public class GodotAndroidBle extends GodotPlugin {
             } else if (characteristicUUID.equals(BATTERY_LEVEL_CHARACTERISTIC_UUID)) {
                 int batteryLevel = parser.getIntValue(FORMAT_UINT8);
                 Log.i(TAG, String.format("Received battery level %d%%", batteryLevel));
+                emitSignal("on_battery_level", batteryLevel);
             } else if (characteristicUUID.equals(MANUFACTURER_NAME_CHARACTERISTIC_UUID)) {
                 String manufacturer = parser.getStringValue(0);
                 Log.i(TAG, String.format("Received manufacturer: %s", manufacturer));
+                emitSignal("on_manufacturer_name", manufacturer);
             } else if (characteristicUUID.equals(MODEL_NUMBER_CHARACTERISTIC_UUID)) {
                 String modelNumber = parser.getStringValue(0);
                 Log.i(TAG, String.format("Received modelnumber: %s", modelNumber));
+                emitSignal("on_model_number", modelNumber);
             } else if (characteristicUUID.equals(PNP_ID_CHARACTERISTIC_UUID)) {
                 String modelNumber = parser.getStringValue(0);
                 Log.i(TAG, String.format("Received pnp: %s", modelNumber));
@@ -745,16 +752,19 @@ public class GodotAndroidBle extends GodotPlugin {
         @Override
         public void onConnectedPeripheral(@NotNull BluetoothPeripheral peripheral) {
             Log.i(TAG, String.format("connected to '%s'", peripheral.getName()));
+            emitSignal("on_connected", peripheral.getName(), peripheral.getAddress());
         }
 
         @Override
         public void onConnectionFailed(@NotNull BluetoothPeripheral peripheral, final @NotNull HciStatus status) {
             Log.e(TAG, String.format("connection '%s' failed with status %s", peripheral.getName(), status));
+            emitSignal("on_connected_error");
         }
 
         @Override
         public void onDisconnectedPeripheral(@NotNull final BluetoothPeripheral peripheral, final @NotNull HciStatus status) {
             Log.i(TAG, String.format("disconnected '%s' with status %s", peripheral.getName(), status));
+            emitSignal("on_disconnected", peripheral.getName(), peripheral.getAddress());
 
             // Reconnect to this device when it becomes available again
             handler.postDelayed(new Runnable() {
@@ -768,6 +778,7 @@ public class GodotAndroidBle extends GodotPlugin {
         @Override
         public void onDiscoveredPeripheral(@NotNull BluetoothPeripheral peripheral, @NotNull ScanResult scanResult) {
             Log.i(TAG, String.format("Found peripheral '%s'", peripheral.getName()));
+            emitSignal("on_devices_found", peripheral.getName(), peripheral.getAddress());
             central.stopScan();
 
             if (peripheral.getName().contains("Contour") && peripheral.getBondState() == BondState.NONE) {
@@ -820,7 +831,9 @@ public class GodotAndroidBle extends GodotPlugin {
     }
     */
 
-    private void startScan() {
+    @UsedByGodot
+    public void startScan() {
+        Log.i(TAG, "startScan");
         handler.postDelayed(new Runnable() {
             @Override
             public void run() {
@@ -828,6 +841,12 @@ public class GodotAndroidBle extends GodotPlugin {
                 central.scanForPeripheralsWithServices(new UUID[]{CSC_SERVICE_UUID});
             }
         },1000);
+    }
+
+    @UsedByGodot
+    public void stopScan() {
+        Log.i(TAG, "stopScan");
+        central.stopScan();
     }
 
     private boolean isOmronBPM(final String name) {
