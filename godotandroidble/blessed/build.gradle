@@ -1,14 +1,18 @@
-apply plugin: 'com.android.library'
-apply plugin: 'maven-publish'
+import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 
-group = 'com.github.weliem'
+plugins {
+    id 'com.android.library'
+    id 'maven-publish'
+    id 'org.jetbrains.kotlin.android'
+}
 
 android {
-    compileSdkVersion 33
+    namespace = 'com.welie.blessed'
+    compileSdk = 36
 
     defaultConfig {
-        minSdkVersion 32
-        targetSdkVersion 32
+        minSdk = 28
+        targetSdk = 36
 
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
     }
@@ -20,25 +24,31 @@ android {
         }
     }
     compileOptions {
-        sourceCompatibility JavaVersion.VERSION_1_7
-        targetCompatibility JavaVersion.VERSION_1_7
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
     }
-    ndkVersion '23.2.8568313'
-    buildToolsVersion '33.0.2'
-    libraryVariants.all { variant ->
-        variant.outputs.all { output ->
-            output.outputFileName = "Blessed.aar"
+    kotlin {
+        compilerOptions {
+            jvmTarget = JvmTarget.JVM_17
+        }
+    }
+    testOptions {
+        unitTests {
+            includeAndroidResources = true
+        }
+    }
+    publishing {
+        singleVariant('release') {
+            withSourcesJar()
         }
     }
 }
 
 dependencies {
-    // implementation 'com.jakewharton.timber:timber:5.0.1'
-    implementation 'org.jetbrains:annotations:20.1.0'
-    testImplementation 'junit:junit:4.13.2'
-    testImplementation "org.robolectric:robolectric:4.5.1"
-    testImplementation "org.mockito:mockito-core:3.8.0"
-    testImplementation 'androidx.test:core:1.4.0'
+    implementation libs.timber
+    testImplementation libs.junit
+    testImplementation libs.mockk
+    testImplementation libs.robolectric
 }
 
 afterEvaluate {
@@ -48,8 +58,8 @@ afterEvaluate {
             release(MavenPublication) {
                 from components.release
                 groupId = 'com.github.weliem'
-                artifactId = 'blessed-android'
-                version = '1.0'
+                artifactId = 'blessed-kotlin'
+                version = '3.0.0'
             }
         }
     }
