@@ -2,6 +2,7 @@ package com.duffrecords.godotandroidble
 
 import com.welie.blessed.BluetoothBytesParser
 import java.nio.ByteOrder
+import org.godotengine.godot.Dictionary
 
 data class CyclingCadenceMeasurement(
     val cumulativeWheelRevs: UInt?,
@@ -11,6 +12,15 @@ data class CyclingCadenceMeasurement(
 ) {
     override fun toString(): String {
         return "wheel revs: $cumulativeWheelRevs last wheel event: $lastWheelEventTime crank revs: $cumulativeCrankRevs last crank time: $lastCrankEventTime"
+    }
+
+    fun toDictionary(): Dictionary {
+        val dict = Dictionary()
+        dict["cumulative_wheel_revs"] = cumulativeWheelRevs
+        dict["last_wheel_event_time"] = lastWheelEventTime
+        dict["cumulative_crank_revs"] = cumulativeCrankRevs
+        dict["last_crank_event_time"] = lastCrankEventTime
+        return dict
     }
 
     companion object {

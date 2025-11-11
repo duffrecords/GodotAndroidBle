@@ -32,6 +32,7 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import org.godotengine.godot.Dictionary
 import org.godotengine.godot.Godot
 import org.godotengine.godot.plugin.GodotPlugin
 import org.godotengine.godot.plugin.SignalInfo
@@ -165,61 +166,72 @@ object BluetoothHandler {
             when (characteristic.uuid) {
                 MANUFACTURER_NAME_CHARACTERISTIC_UUID -> {
                     Timber.i("Manufacturer: ${value.getString()}")
+                    emitSignal("manufacturer_name_received", value.getString())
                 }
 
                 MODEL_NUMBER_CHARACTERISTIC_UUID -> {
                     Timber.i("Model: ${value.getString()}")
+                    emitSignal("model_number_received", value.getString())
                 }
 
                 BATTERY_LEVEL_CHARACTERISTIC_UUID -> {
                     Timber.i("Battery: ${value.getUInt8()}")
+                    emitSignal("battery_level_received", value.getUInt8().toUInt())
                 }
 
                 CURRENT_TIME_CHARACTERISTIC_UUID -> {
                     val currentTime = BluetoothBytesParser(value).getDateTime()
                     val dateFormat: DateFormat = SimpleDateFormat("dd-MM-yyyy HH:mm:ss", Locale.ENGLISH)
                     Timber.i("Current time: ${dateFormat.format(currentTime)}")
+                    emitSignal("current_time_received", dateFormat.format(currentTime))
                 }
 
                 HTS_MEASUREMENT_CHARACTERISTIC_UUID -> {
                     val measurement = TemperatureMeasurement.fromBytes(value) ?: return
                     sendMeasurement(measurement.toString())
+                    emitSignal("temperature_measurement_received", measurement.toDictionary())
                 }
 
                 WSS_MEASUREMENT_CHAR_UUID -> {
                     val measurement = WeightMeasurement.fromBytes(value) ?: return
                     sendMeasurement(measurement.toString())
+                    emitSignal("weight_measurement_received", measurement.toDictionary())
                 }
 
                 PLX_SPOT_MEASUREMENT_CHAR_UUID -> {
                     val measurement = PulseOximeterSpotMeasurement.fromBytes(value) ?: return
                     sendMeasurement(measurement.toString())
+                    emitSignal("pulse_oximeter_spot_measurement_received", measurement.toDictionary())
                 }
 
                 PLX_CONTINUOUS_MEASUREMENT_CHAR_UUID -> {
                     val measurement = PulseOximeterContinuousMeasurement.fromBytes(value) ?: return
                     sendMeasurement(measurement.toString())
+                    emitSignal("pulse_oximeter_continuous_measurement_received", measurement.toDictionary())
                 }
 
                 BLP_MEASUREMENT_CHARACTERISTIC_UUID -> {
                     val measurement = BloodPressureMeasurement.fromBytes(value) ?: return
                     sendMeasurement(measurement.toString())
+                    emitSignal("blood_pressure_measurement_received", measurement.toDictionary())
                 }
 
                 GLUCOSE_MEASUREMENT_CHARACTERISTIC_UUID -> {
                     val measurement = GlucoseMeasurement.fromBytes(value) ?: return
                     sendMeasurement(measurement.toString())
+                    emitSignal("glucose_measurement_received", measurement.toDictionary())
                 }
 
                 HRS_MEASUREMENT_CHARACTERISTIC_UUID -> {
                     val measurement = HeartRateMeasurement.fromBytes(value) ?: return
                     sendMeasurement(measurement.toString())
+                    emitSignal("heart_rate_measurement_received", measurement.pulse)
                 }
 
                 CSC_MEASUREMENT_CHARACTERISTIC_UUID -> {
                     val measurement = CyclingCadenceMeasurement.fromBytes(value) ?: return
                     sendMeasurement(measurement.toString())
-                    emitSignal(cscMeasurementSignalInfo.name, measurement.cumulativeWheelRevs, measurement.lastWheelEventTime, measurement.cumulativeCrankRevs, measurement.lastCrankEventTime)
+                    emitSignal("cycling_cadence_measurement_received", measurement.toDictionary())
                 }
             }
         }
@@ -261,6 +273,7 @@ object BluetoothHandler {
     private val bluetoothCentralManagerCallback = object : BluetoothCentralManagerCallback() {
         override fun onDiscovered(peripheral: BluetoothPeripheral, scanResult: ScanResult) {
             Timber.i("Found peripheral '${peripheral.name}' with RSSI ${scanResult.rssi}")
+            emitSignal("device_found", peripheral.address, peripheral.name)
             centralManager.stopScan()
 
             if (peripheral.needsBonding() && peripheral.bondState == BondState.NONE) {
@@ -273,11 +286,13 @@ object BluetoothHandler {
 
         override fun onConnected(peripheral: BluetoothPeripheral) {
             Timber.i("connected to '${peripheral.name}'")
+            emitSignal("connected", peripheral.name)
             Toast.makeText(context, "Connected to ${peripheral.name}", LENGTH_SHORT).show()
         }
 
         override fun onDisconnected(peripheral: BluetoothPeripheral, status: HciStatus) {
             Timber.i("disconnected '${peripheral.name}'")
+            emitSignal("disconnected", peripheral.name, status.name)
             Toast.makeText(context, "Disconnected ${peripheral.name}", LENGTH_SHORT).show()
             handler.postDelayed(
                 { centralManager.autoConnect(peripheral, bluetoothPeripheralCallback) },
@@ -287,10 +302,12 @@ object BluetoothHandler {
 
         override fun onConnectionFailed(peripheral: BluetoothPeripheral, status: HciStatus) {
             Timber.e("failed to connect to '${peripheral.name}'")
+            emitSignal("connection_failed", peripheral.name, status.name)
         }
 
         override fun onBluetoothAdapterStateChanged(state: Int) {
             Timber.i("bluetooth adapter changed state to %d", state)
+            emitSignal("bluetooth_state_changed", state)
             if (state == BluetoothAdapter.STATE_ON) {
                 // Bluetooth is on now, start scanning again
                 // Scan for peripherals with a certain service UUIDs

@@ -7,6 +7,7 @@ import java.text.SimpleDateFormat
 import java.util.Calendar
 import java.util.Date
 import java.util.Locale
+import org.godotengine.godot.Dictionary
 
 data class PulseOximeterSpotMeasurement(
     val spO2: Double,
@@ -21,6 +22,19 @@ data class PulseOximeterSpotMeasurement(
     override fun toString(): String {
         val dateFormat: DateFormat = SimpleDateFormat("dd-MM-yyyy HH:mm:ss", Locale.ENGLISH)
         return "${"%.0f".format(spO2)} %, ${"%.0f".format(pulseRate)} bpm\nat ${dateFormat.format(timestamp ?: createdAt)} "
+    }
+
+    fun toDictionary(): Dictionary {
+        val dict = Dictionary()
+        dict["spO2"] = spO2
+        dict["pulse_rate"] = pulseRate
+        dict["pulse_amplitude_index"] = pulseAmplitudeIndex
+        dict["timestamp"] = timestamp ?: createdAt
+        dict["is_device_clock_set"] = isDeviceClockSet
+        dict["measurement_status"] = measurementStatus
+        dict["sensor_status"] = sensorStatus
+        dict["created_at"] = createdAt
+        return dict
     }
 
     companion object {

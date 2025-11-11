@@ -4,6 +4,7 @@ import com.welie.blessed.BluetoothBytesParser
 import java.nio.ByteOrder.LITTLE_ENDIAN
 import java.util.Calendar
 import java.util.Date
+import org.godotengine.godot.Dictionary
 
 data class PulseOximeterContinuousMeasurement(
     val spO2: Double,
@@ -19,6 +20,21 @@ data class PulseOximeterContinuousMeasurement(
 ) {
     override fun toString(): String {
         return "${"%.1f".format(spO2)} %%"
+    }
+
+    fun toDictionary(): Dictionary {
+        val dict = Dictionary()
+        dict["spO2"] = spO2
+        dict["pulse_rate"] = pulseRate
+        dict["spO2_fast"] = spO2Fast
+        dict["pulse_rate_fast"] = pulseRateFast
+        dict["spO2_slow"] = spO2Slow
+        dict["pulse_rate_slow"] = pulseRateSlow
+        dict["measurement_status"] = measurementStatus
+        dict["sensor_status"] = sensorStatus
+        dict["pulse_amplitude_index"] = pulseAmplitudeIndex
+        dict["created_at"] = createdAt
+        return dict
     }
 
     companion object {

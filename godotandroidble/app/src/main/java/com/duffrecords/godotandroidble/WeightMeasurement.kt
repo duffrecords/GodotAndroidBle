@@ -10,6 +10,7 @@ import java.util.Calendar
 import java.util.Date
 import java.util.Locale
 import kotlin.math.round
+import org.godotengine.godot.Dictionary
 
 data class WeightMeasurement(
     val weight: Double,
@@ -23,6 +24,17 @@ data class WeightMeasurement(
     override fun toString(): String {
         val dateFormat: DateFormat = SimpleDateFormat("dd-MM-yyyy HH:mm:ss", Locale.ENGLISH)
         return "${"%.1f".format(weight)} ${unit.notation} \nat ${dateFormat.format(timestamp ?: createdAt)} "
+    }
+
+    fun toDictionary(): Dictionary {
+        val dict = Dictionary()
+        dict["weight"] = weight
+        dict["unit"] = unit.ordinal
+        dict["timestamp"] = timestamp ?: createdAt
+        dict["user_id"] = userID
+        dict["bmi"] = bmi
+        dict["height_in_meters_or_inches"] = heightInMetersOrInches
+        return dict
     }
 
     companion object {

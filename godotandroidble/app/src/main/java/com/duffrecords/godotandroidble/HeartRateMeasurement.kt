@@ -4,6 +4,7 @@ import com.welie.blessed.BluetoothBytesParser
 import java.nio.ByteOrder
 import java.util.Calendar
 import java.util.Date
+import org.godotengine.godot.Dictionary
 
 data class HeartRateMeasurement(
     val pulse: UShort,
@@ -14,6 +15,16 @@ data class HeartRateMeasurement(
 ) {
     override fun toString(): String {
         return "$pulse bpm"
+    }
+
+    fun toDictionary(): Dictionary {
+        val dict = Dictionary()
+        dict["pulse"] = pulse
+        dict["energy_expended"] = energyExpended
+        dict["rr_intervals"] = rrIntervals
+        dict["sensor_contact_status"] = sensorContactStatus.ordinal
+        dict["created_at"] = createdAt
+        return dict
     }
 
     companion object {

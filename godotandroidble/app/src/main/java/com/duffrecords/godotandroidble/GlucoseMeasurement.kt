@@ -9,6 +9,7 @@ import java.text.SimpleDateFormat
 import java.util.Calendar
 import java.util.Date
 import java.util.Locale
+import org.godotengine.godot.Dictionary
 
 data class GlucoseMeasurement(
     val value: Double?,
@@ -21,6 +22,16 @@ data class GlucoseMeasurement(
     override fun toString(): String {
         val dateFormat: DateFormat = SimpleDateFormat("dd-MM-yyyy HH:mm:ss", Locale.ENGLISH)
         return "${"%.0f".format(value)} ${unit.notation} \nat ${dateFormat.format(timestamp ?: createdAt)} "
+    }
+
+    fun toDictionary(): Dictionary {
+        val dict = Dictionary()
+        dict["value"] = value
+        dict["unit"] = unit.ordinal
+        dict["timestamp"] = timestamp ?: createdAt
+        dict["sequence_number"] = sequenceNumber
+        dict["context_will_follow"] = contextWillFollow
+        return dict
     }
 
     companion object {
