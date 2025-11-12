@@ -1,0 +1,74 @@
+package com.duffrecords.godotandroidble
+
+import com.welie.blessed.BluetoothBytesParser
+import java.nio.ByteOrder.LITTLE_ENDIAN
+import java.text.DateFormat
+import java.text.SimpleDateFormat
+import java.util.Calendar
+import java.util.Date
+import java.util.Locale
+import org.godotengine.godot.Dictionary
+
+data class PulseOximeterSpotMeasurement(
+    val spO2: Double,
+    val pulseRate: Double,
+    val pulseAmplitudeIndex: Double?,
+    val timestamp: Date?,
+    val isDeviceClockSet: Boolean,
+    val measurementStatus: UShort?,
+    val sensorStatus: UShort?,
+    val createdAt: Date = Calendar.getInstance().time
+) {
+    override fun toString(): String {
+        val dateFormat: DateFormat = SimpleDateFormat("dd-MM-yyyy HH:mm:ss", Locale.ENGLISH)
+        return "${"%.0f".format(spO2)} %, ${"%.0f".format(pulseRate)} bpm\nat ${dateFormat.format(timestamp ?: createdAt)} "
+    }
+
+    fun toDictionary(): Dictionary {
+        val dict = Dictionary()
+        dict["spO2"] = spO2
+        dict["pulse_rate"] = pulseRate
+        dict["pulse_amplitude_index"] = pulseAmplitudeIndex
+        dict["timestamp"] = timestamp ?: createdAt
+        dict["is_device_clock_set"] = isDeviceClockSet
+        dict["measurement_status"] = measurementStatus
+        dict["sensor_status"] = sensorStatus
+        dict["created_at"] = createdAt
+        return dict
+    }
+
+    companion object {
+        fun fromBytes(value: ByteArray): PulseOximeterSpotMeasurement? {
+            val parser = BluetoothBytesParser(value, 0, LITTLE_ENDIAN)
+
+            try {
+                val flags = parser.getUInt8()
+                val timestampPresent = flags and 0x01u > 0u
+                val measurementStatusPresent = flags and 0x02u > 0u
+                val sensorStatusPresent = flags and 0x04u > 0u
+                val pulseAmplitudeIndexPresent = flags and 0x08u > 0u
+                val isDeviceClockSet = flags and 0x10u == 0u
+
+                val spO2 = parser.getSFloat()
+                val pulseRate = parser.getSFloat()
+                val timestamp = if (timestampPresent) parser.getDateTime() else null
+                val measurementStatus = if (measurementStatusPresent) parser.getUInt16() else null
+                val sensorStatus = if (sensorStatusPresent) parser.getUInt16() else null
+                if (sensorStatusPresent) parser.getUInt8() // Reserved byte
+                val pulseAmplitudeIndex = if (pulseAmplitudeIndexPresent) parser.getSFloat() else null
+
+                return PulseOximeterSpotMeasurement(
+                    spO2 = spO2,
+                    pulseRate = pulseRate,
+                    measurementStatus = measurementStatus,
+                    sensorStatus = sensorStatus,
+                    pulseAmplitudeIndex = pulseAmplitudeIndex,
+                    timestamp = timestamp,
+                    isDeviceClockSet = isDeviceClockSet
+                )
+            } catch (_ : Exception) {
+                return null
+            }
+        }
+    }
+}
