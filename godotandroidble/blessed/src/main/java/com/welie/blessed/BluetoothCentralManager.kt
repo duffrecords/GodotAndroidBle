@@ -715,7 +715,7 @@ class BluetoothCentralManager(private val context: Context, private val bluetoot
         return true
     }
 
-    private val isBleSupported: Boolean
+    val isBleSupported: Boolean
         get() {
             if (context.packageManager.hasSystemFeature(PackageManager.FEATURE_BLUETOOTH_LE)) {
                 return true

@@ -32,11 +32,6 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
-import org.godotengine.godot.Dictionary
-import org.godotengine.godot.Godot
-import org.godotengine.godot.plugin.GodotPlugin
-import org.godotengine.godot.plugin.SignalInfo
-import org.godotengine.godot.plugin.UsedByGodot
 import timber.log.Timber
 import java.nio.ByteOrder
 import java.text.DateFormat
@@ -51,6 +46,7 @@ import java.util.UUID
 object BluetoothHandler {
 
     private lateinit var context: Context
+    private lateinit var emitter: SignalEmitter
 
     // Setup our own thread for BLE.
     // Use Handler(Looper.getMainLooper()) if you want to run on main thread
@@ -109,7 +105,6 @@ object BluetoothHandler {
     private val CSC_MEASUREMENT_CHARACTERISTIC_UUID = UUID.fromString("00002A5B-0000-1000-8000-00805f9b34fb")
     // private static final UUID CSC_FEATURE_CHARACTERISTIC_UUID = UUID.fromString("00002A5C-0000-1000-8000-00805f9b34fb");
     // private static final UUID CSC_LOCATION_CHARACTERISTIC_UUID = UUID.fromString("00002A5D-0000-1000-8000-00805f9b34fb");
-    val cscMeasurementSignalInfo = SignalInfo("csc_measurement", UInt::class.javaObjectType, UShort::class.javaObjectType, UShort::class.javaObjectType, UShort::class.javaObjectType)
 
     // UUIDs for the Running Speed and Cadence service (RSCS)
     // private static final UUID RSC_SERVICE_UUID = UUID.fromString("00001814-0000-1000-8000-00805f9b34fb");
@@ -273,7 +268,7 @@ object BluetoothHandler {
     private val bluetoothCentralManagerCallback = object : BluetoothCentralManagerCallback() {
         override fun onDiscovered(peripheral: BluetoothPeripheral, scanResult: ScanResult) {
             Timber.i("Found peripheral '${peripheral.name}' with RSSI ${scanResult.rssi}")
-            emitSignal("device_found", peripheral.address, peripheral.name)
+            emitSignal("bluetooth_device_found", peripheral.address, peripheral.name)
             centralManager.stopScan()
 
             if (peripheral.needsBonding() && peripheral.bondState == BondState.NONE) {
@@ -286,13 +281,13 @@ object BluetoothHandler {
 
         override fun onConnected(peripheral: BluetoothPeripheral) {
             Timber.i("connected to '${peripheral.name}'")
-            emitSignal("connected", peripheral.name)
+            emitSignal("bluetooth_device_connected", peripheral.name)
             Toast.makeText(context, "Connected to ${peripheral.name}", LENGTH_SHORT).show()
         }
 
         override fun onDisconnected(peripheral: BluetoothPeripheral, status: HciStatus) {
             Timber.i("disconnected '${peripheral.name}'")
-            emitSignal("disconnected", peripheral.name, status.name)
+            emitSignal("bluetooth_device_disconnected", peripheral.name, status.name)
             Toast.makeText(context, "Disconnected ${peripheral.name}", LENGTH_SHORT).show()
             handler.postDelayed(
                 { centralManager.autoConnect(peripheral, bluetoothPeripheralCallback) },
@@ -302,7 +297,7 @@ object BluetoothHandler {
 
         override fun onConnectionFailed(peripheral: BluetoothPeripheral, status: HciStatus) {
             Timber.e("failed to connect to '${peripheral.name}'")
-            emitSignal("connection_failed", peripheral.name, status.name)
+            emitSignal("bluetooth_device_connection_failed", peripheral.name, status.name)
         }
 
         override fun onBluetoothAdapterStateChanged(state: Int) {
@@ -317,7 +312,6 @@ object BluetoothHandler {
         }
     }
 
-    @UsedByGodot
     fun startScanning() {
         if(centralManager.isNotScanning) {
             centralManager.scanForPeripheralsWithServices(
@@ -334,15 +328,48 @@ object BluetoothHandler {
         }
     }
 
-    @UsedByGodot
+    fun scanForBlpService() {
+        if(centralManager.isNotScanning)
+            centralManager.scanForPeripheralsWithServices(setOf(BLP_SERVICE_UUID))
+    }
+
+    fun scanForGlucoseService() {
+        if(centralManager.isNotScanning)
+            centralManager.scanForPeripheralsWithServices(setOf(GLUCOSE_SERVICE_UUID))
+    }
+
+    fun scanForHrsService() {
+        if(centralManager.isNotScanning)
+            centralManager.scanForPeripheralsWithServices(setOf(HRS_SERVICE_UUID))
+    }
+
+    fun scanForHtsService() {
+        if(centralManager.isNotScanning)
+            centralManager.scanForPeripheralsWithServices(setOf(HTS_SERVICE_UUID))
+    }
+
+    fun scanForPlxService() {
+        if(centralManager.isNotScanning)
+            centralManager.scanForPeripheralsWithServices(setOf(PLX_SERVICE_UUID))
+    }
+
+    fun scanForWssService() {
+        if(centralManager.isNotScanning)
+            centralManager.scanForPeripheralsWithServices(setOf(WSS_SERVICE_UUID))
+    }
+
+    fun scanForCscService() {
+        if(centralManager.isNotScanning)
+            centralManager.scanForPeripheralsWithServices(setOf(CSC_SERVICE_UUID))
+    }
+
     fun stopScanning() {
         if(centralManager.isScanning) {
             centralManager.stopScan()
         }
     }
 
-    @UsedByGodot
-    fun initialize(context: Context) {
+    fun initialize(context: Context, emitter: SignalEmitter) {
         Timber.plant(Timber.DebugTree())
         Timber.i("initializing BluetoothHandler")
 
@@ -351,7 +378,13 @@ object BluetoothHandler {
         handler = Handler(handlerThread.looper)
 
         this.context = context.applicationContext
+        this.emitter = emitter
         this.centralManager = BluetoothCentralManager(this.context, bluetoothCentralManagerCallback, handler)
+    }
+
+    // Local helper so the rest of the code doesn’t know about plugin details
+    private fun emitSignal(name: String, vararg args: Any?) {
+        emitter.emitToGodot(name, *args)
     }
 }
 
