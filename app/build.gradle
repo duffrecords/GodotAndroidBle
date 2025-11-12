@@ -46,6 +46,11 @@ android {
             excludes += '/META-INF/{AL2.0,LGPL2.1}'
         }
     }
+    libraryVariants.configureEach { variant ->
+        variant.outputs.all { output ->
+            output.outputFileName = "GodotAndroidBle.aar"
+        }
+    }
 }
 
 dependencies {
