@@ -171,11 +171,33 @@ class GodotAndroidBle(godot: Godot): GodotPlugin(godot), SignalEmitter {
             return
         }
 
+        // API 31+ requires BLUETOOTH_CONNECT before touching the adapter / request flow
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            val hasConnect = ActivityCompat.checkSelfPermission(
+                act,
+                android.Manifest.permission.BLUETOOTH_CONNECT
+            ) == PackageManager.PERMISSION_GRANTED
+
+            if (!hasConnect) {
+                ActivityCompat.requestPermissions(
+                    act,
+                    arrayOf(android.Manifest.permission.BLUETOOTH_CONNECT),
+                    REQ_BLE_PERMISSIONS
+                )
+                // Wait for onMainRequestPermissionsResult to continue
+                return
+            }
+        }
         val intent = Intent(BluetoothAdapter.ACTION_REQUEST_ENABLE)
 
         // Make sure this runs on the UI thread
         act.runOnUiThread {
-            act.startActivityForResult(intent, REQUEST_ENABLE_BT)
+            try {
+                act.startActivityForResult(intent, REQUEST_ENABLE_BT)
+            } catch (se: SecurityException) {
+                Timber.e("Security exception when requesting Bluetooth enable: ${se.message}")
+                emitSignal(SIGNAL_BLUETOOTH_ENABLE_REQUEST_COMPLETED, BLUETOOTH_DISABLED)
+            }
         }
     }
 
