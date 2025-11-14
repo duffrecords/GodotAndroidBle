@@ -106,9 +106,14 @@ object BluetoothHandler {
     // private static final UUID CSC_FEATURE_CHARACTERISTIC_UUID = UUID.fromString("00002A5C-0000-1000-8000-00805f9b34fb");
     // private static final UUID CSC_LOCATION_CHARACTERISTIC_UUID = UUID.fromString("00002A5D-0000-1000-8000-00805f9b34fb");
 
+    // UUIDs for the Cycling Power service (CPS)
+    private val CP_SERVICE_UUID = UUID.fromString("00001818-0000-1000-8000-00805f9b34fb")
+    private val CP_MEASUREMENT_CHARACTERISTIC_UUID = UUID.fromString("00002A63-0000-1000-8000-00805f9b34fb")
+    // private static final UUID CP_FEATURE_CHARACTERISTIC_UUID = UUID.fromString("00002A65-0000-1000-8000-00805f9b34fb");
+
     // UUIDs for the Running Speed and Cadence service (RSCS)
-    // private static final UUID RSC_SERVICE_UUID = UUID.fromString("00001814-0000-1000-8000-00805f9b34fb");
-    // private static final UUID RSC_MEASUREMENT_CHARACTERISTIC_UUID = UUID.fromString("00002A53-0000-1000-8000-00805f9b34fb");
+    private val RSC_SERVICE_UUID = UUID.fromString("00001814-0000-1000-8000-00805f9b34fb")
+    private val RSC_MEASUREMENT_CHARACTERISTIC_UUID = UUID.fromString("00002A53-0000-1000-8000-00805f9b34fb")
     // private static final UUID RSC_FEATURE_CHARACTERISTIC_UUID = UUID.fromString("00002A54-0000-1000-8000-00805f9b34fb");
 
     private val bluetoothPeripheralCallback = object : BluetoothPeripheralCallback() {
@@ -141,6 +146,8 @@ object BluetoothHandler {
             peripheral.startNotify(WSS_SERVICE_UUID, WSS_MEASUREMENT_CHAR_UUID)
             peripheral.startNotify(CONTOUR_SERVICE_UUID, CONTOUR_CLOCK)
             peripheral.startNotify(CSC_SERVICE_UUID, CSC_MEASUREMENT_CHARACTERISTIC_UUID)
+            peripheral.startNotify(CP_SERVICE_UUID, CP_MEASUREMENT_CHARACTERISTIC_UUID);
+            peripheral.startNotify(RSC_SERVICE_UUID, RSC_MEASUREMENT_CHARACTERISTIC_UUID);
         }
 
         override fun onNotificationStateUpdate(peripheral: BluetoothPeripheral, characteristic: BluetoothGattCharacteristic, status: GattStatus) {
@@ -220,13 +227,25 @@ object BluetoothHandler {
                 HRS_MEASUREMENT_CHARACTERISTIC_UUID -> {
                     val measurement = HeartRateMeasurement.fromBytes(value) ?: return
                     sendMeasurement(measurement.toString())
-                    emitSignal("heart_rate_measurement_received", measurement.pulse)
+                    emitSignal("heart_rate_measurement_received", measurement.toDictionary())
                 }
 
                 CSC_MEASUREMENT_CHARACTERISTIC_UUID -> {
                     val measurement = CyclingCadenceMeasurement.fromBytes(value) ?: return
                     sendMeasurement(measurement.toString())
                     emitSignal("cycling_cadence_measurement_received", measurement.toDictionary())
+                }
+
+                CP_MEASUREMENT_CHARACTERISTIC_UUID -> {
+                    val measurement = CyclingPowerMeasurement.fromBytes(value) ?: return
+                    sendMeasurement(measurement.toString())
+                    emitSignal("cycling_power_measurement_received", measurement.toDictionary())
+                }
+
+                RSC_MEASUREMENT_CHARACTERISTIC_UUID -> {
+                    val measurement = RunningCadenceMeasurement.fromBytes(value) ?: return
+                    sendMeasurement(measurement.toString())
+                    emitSignal("running_cadence_measurement_received", measurement.toDictionary())
                 }
             }
         }
@@ -268,7 +287,7 @@ object BluetoothHandler {
     private val bluetoothCentralManagerCallback = object : BluetoothCentralManagerCallback() {
         override fun onDiscovered(peripheral: BluetoothPeripheral, scanResult: ScanResult) {
             Timber.i("Found peripheral '${peripheral.name}' with RSSI ${scanResult.rssi}")
-            emitSignal("bluetooth_device_found", peripheral.address, peripheral.name)
+            emitSignal("bluetooth_device_found", peripheral.name, peripheral.address, scanResult.rssi)
             centralManager.stopScan()
 
             if (peripheral.needsBonding() && peripheral.bondState == BondState.NONE) {
@@ -281,13 +300,13 @@ object BluetoothHandler {
 
         override fun onConnected(peripheral: BluetoothPeripheral) {
             Timber.i("connected to '${peripheral.name}'")
-            emitSignal("bluetooth_device_connected", peripheral.name)
+            emitSignal("bluetooth_device_connected", peripheral.name, peripheral.address)
             Toast.makeText(context, "Connected to ${peripheral.name}", LENGTH_SHORT).show()
         }
 
         override fun onDisconnected(peripheral: BluetoothPeripheral, status: HciStatus) {
             Timber.i("disconnected '${peripheral.name}'")
-            emitSignal("bluetooth_device_disconnected", peripheral.name, status.name)
+            emitSignal("bluetooth_device_disconnected", peripheral.name, peripheral.address, status.name)
             Toast.makeText(context, "Disconnected ${peripheral.name}", LENGTH_SHORT).show()
             handler.postDelayed(
                 { centralManager.autoConnect(peripheral, bluetoothPeripheralCallback) },
@@ -297,7 +316,7 @@ object BluetoothHandler {
 
         override fun onConnectionFailed(peripheral: BluetoothPeripheral, status: HciStatus) {
             Timber.e("failed to connect to '${peripheral.name}'")
-            emitSignal("bluetooth_device_connection_failed", peripheral.name, status.name)
+            emitSignal("bluetooth_device_connection_failed", peripheral.name, peripheral.address, status.name)
         }
 
         override fun onBluetoothAdapterStateChanged(state: Int) {
@@ -361,6 +380,21 @@ object BluetoothHandler {
     fun scanForCscService() {
         if(centralManager.isNotScanning)
             centralManager.scanForPeripheralsWithServices(setOf(CSC_SERVICE_UUID))
+    }
+
+    fun scanForCpService() {
+        if(centralManager.isNotScanning)
+            centralManager.scanForPeripheralsWithServices(setOf(CP_SERVICE_UUID))
+    }
+
+    fun scanForRscService() {
+        if(centralManager.isNotScanning)
+            centralManager.scanForPeripheralsWithServices(setOf(RSC_SERVICE_UUID))
+    }
+
+    fun scanForAddress(address: String) {
+        if(centralManager.isNotScanning)
+            centralManager.scanForPeripheralsWithAddresses(setOf(address))
     }
 
     fun stopScanning() {

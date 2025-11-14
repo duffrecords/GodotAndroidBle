@@ -55,6 +55,8 @@ class GodotAndroidBle(godot: Godot): GodotPlugin(godot), SignalEmitter {
         const val SIGNAL_MODEL_NUMBER_RECEIVED = "model_number_received"
         const val SIGNAL_BLOOD_PRESSURE_MEASUREMENT_RECEIVED = "blood_pressure_measurement_received"
         const val SIGNAL_CYCLING_CADENCE_MEASUREMENT_RECEIVED = "cycling_cadence_measurement_received"
+        const val SIGNAL_CYCLING_POWER_MEASUREMENT_RECEIVED = "cycling_power_measurement_received"
+        const val SIGNAL_RUNNING_CADENCE_MEASUREMENT_RECEIVED = "running_cadence_measurement_received"
         const val SIGNAL_GLUCOSE_MEASUREMENT_RECEIVED = "glucose_measurement_received"
         const val SIGNAL_HEART_RATE_MEASUREMENT_RECEIVED = "heart_rate_measurement_received"
         const val SIGNAL_PULSE_OXIMETER_CONTINUOUS_MEASUREMENT_RECEIVED = "pulse_oximeter_continuous_measurement_received"
@@ -75,19 +77,21 @@ class GodotAndroidBle(godot: Godot): GodotPlugin(godot), SignalEmitter {
         return mutableSetOf(
             SignalInfo(SIGNAL_BLUETOOTH_ENABLE_REQUEST_COMPLETED, Int::class.java),
             SignalInfo(SIGNAL_PERMISSION_REQUEST_COMPLETED, Any::class.java, String::class.java, Any::class.java),
-            SignalInfo(SIGNAL_BLUETOOTH_DEVICE_CONNECTED, String::class.java, String::class.java),
-            SignalInfo(SIGNAL_BLUETOOTH_DEVICE_CONNECTION_FAILED, String::class.java),
-            SignalInfo(SIGNAL_BLUETOOTH_DEVICE_DISCONNECTED, String::class.java, String::class.java),
             SignalInfo(SIGNAL_BLUETOOTH_STATE_CHANGED, Int::class.java),
-            SignalInfo(SIGNAL_BLUETOOTH_DEVICE_FOUND, String::class.java, String::class.java),
+            SignalInfo(SIGNAL_BLUETOOTH_DEVICE_CONNECTED, String::class.java, String::class.java),
+            SignalInfo(SIGNAL_BLUETOOTH_DEVICE_CONNECTION_FAILED, String::class.java, String::class.java, String::class.java),
+            SignalInfo(SIGNAL_BLUETOOTH_DEVICE_DISCONNECTED, String::class.java, String::class.java, String::class.java),
+            SignalInfo(SIGNAL_BLUETOOTH_DEVICE_FOUND, String::class.java, String::class.java, Int::class.java),
             SignalInfo(SIGNAL_CURRENT_TIME_RECEIVED, String::class.java),
             SignalInfo(SIGNAL_BATTERY_LEVEL_RECEIVED, UInt::class.java),
             SignalInfo(SIGNAL_MANUFACTURER_NAME_RECEIVED, String::class.java),
             SignalInfo(SIGNAL_MODEL_NUMBER_RECEIVED, String::class.java),
             SignalInfo(SIGNAL_BLOOD_PRESSURE_MEASUREMENT_RECEIVED, Dictionary::class.java),
             SignalInfo(SIGNAL_CYCLING_CADENCE_MEASUREMENT_RECEIVED, Dictionary::class.java),
+            SignalInfo(SIGNAL_CYCLING_POWER_MEASUREMENT_RECEIVED, Dictionary::class.java),
+            SignalInfo(SIGNAL_RUNNING_CADENCE_MEASUREMENT_RECEIVED, Dictionary::class.java),
             SignalInfo(SIGNAL_GLUCOSE_MEASUREMENT_RECEIVED, Dictionary::class.java),
-            SignalInfo(SIGNAL_HEART_RATE_MEASUREMENT_RECEIVED, UInt::class.java),
+            SignalInfo(SIGNAL_HEART_RATE_MEASUREMENT_RECEIVED, Dictionary::class.java),
             SignalInfo(SIGNAL_PULSE_OXIMETER_CONTINUOUS_MEASUREMENT_RECEIVED, Dictionary::class.java),
             SignalInfo(SIGNAL_PULSE_OXIMETER_SPOT_MEASUREMENT_RECEIVED, Dictionary::class.java),
             SignalInfo(SIGNAL_TEMPERATURE_MEASUREMENT_RECEIVED, Dictionary::class.java),
@@ -151,6 +155,21 @@ class GodotAndroidBle(godot: Godot): GodotPlugin(godot), SignalEmitter {
     @UsedByGodot
     fun scanForCscService() {
         BluetoothHandler.scanForCscService()
+    }
+
+    @UsedByGodot
+    fun scanForCpService() {
+        BluetoothHandler.scanForCpService()
+    }
+
+    @UsedByGodot
+    fun scanForRscService() {
+        BluetoothHandler.scanForRscService()
+    }
+
+    @UsedByGodot
+    fun scanForAddress(address: String) {
+        BluetoothHandler.scanForAddress(address)
     }
 
     /**
