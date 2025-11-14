@@ -1,0 +1,33 @@
+@tool
+extends EditorPlugin
+
+var export_plugin : AndroidExportPlugin
+
+func _enter_tree():
+	export_plugin = AndroidExportPlugin.new()
+	add_export_plugin(export_plugin)
+
+
+func _exit_tree():
+	remove_export_plugin(export_plugin)
+	export_plugin = null
+
+
+class AndroidExportPlugin extends EditorExportPlugin:
+	var PLUGIN_NAME = "GodotAndroidBle"
+
+	# Specifies which platform is supported by the plugin.
+	func _supports_platform(platform):
+		if platform is EditorExportPlatformAndroid:
+			return true
+		return false
+
+	# Return the paths of the plugin's AAR binaries relative to the 'addons' directory.
+	func _get_android_libraries(platform, debug):
+		if debug:
+			return PackedStringArray([_plugin_name + "/bin/debug/" + _plugin_name + "-debug.aar"])
+		else:
+			return PackedStringArray([_plugin_name + "/bin/release/" + _plugin_name + "-release.aar"])
+
+	func _get_name():
+		return PLUGIN_NAME
