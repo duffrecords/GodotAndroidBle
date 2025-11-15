@@ -19,3 +19,4 @@ rootProject.name = "Godot Android BLE Plugin"
 include ':app'
 include ':peripheral'
 include ':blessed'
+include ':godot-lib'
