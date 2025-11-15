@@ -64,7 +64,7 @@ jobs:
       - name: Rename AAR for release
         run: |
           mv app/build/outputs/aar/GodotAndroidBle-release.aar GodotAndroidBle-godot-${{ matrix.godot }}-release.aar
-          mv app/build/outputs/aar/blessed-release.aar blessed-godot-${{ matrix.godot }}-release.aar
+          mv blessed/build/outputs/aar/blessed-release.aar blessed-godot-${{ matrix.godot }}-release.aar
 
       - name: Upload GodotAndroidBle artifact
         uses: actions/upload-artifact@v4
