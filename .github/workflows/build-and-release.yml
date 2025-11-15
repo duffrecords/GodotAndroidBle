@@ -1,0 +1,21 @@
+name: Build and Release Android Plugin
+
+on:
+  push:
+    tags:
+      - 'v*.*.*'
+      - 'v*.*'
+
+jobs:
+  matrix-setup:
+    uses: ./.github/workflows/matrix-setup.yml
+
+  build:
+    uses: ./.github/workflows/build-reusable.yml
+    with:
+      use_matrix: true
+
+  release:
+    uses: ./.github/workflows/release-reusable.yml
+    with:
+      use_matrix: true
