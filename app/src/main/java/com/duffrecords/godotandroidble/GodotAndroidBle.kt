@@ -297,11 +297,12 @@ class GodotAndroidBle(godot: Godot): GodotPlugin(godot) {
 
     private val bluetoothCentralManagerCallback = object : BluetoothCentralManagerCallback() {
         override fun onDiscovered(peripheral: BluetoothPeripheral, scanResult: ScanResult) {
+            val dict = Dictionary()
+            dict["name"] = peripheral.name
+            dict["address"] = peripheral.address
+            dict["rssi"] = scanResult.rssi
             emitSignal(
-                SIGNAL_BLUETOOTH_DEVICE_FOUND,
-                peripheral.name,
-                peripheral.address,
-                scanResult.rssi
+                SIGNAL_BLUETOOTH_DEVICE_FOUND, dict
             )
             centralManager.stopScan()
 
@@ -396,7 +397,7 @@ class GodotAndroidBle(godot: Godot): GodotPlugin(godot) {
             SignalInfo(SIGNAL_BLUETOOTH_DEVICE_CONNECTED, String::class.java, String::class.java),
             SignalInfo(SIGNAL_BLUETOOTH_DEVICE_CONNECTION_FAILED, String::class.java, String::class.java, String::class.java),
             SignalInfo(SIGNAL_BLUETOOTH_DEVICE_DISCONNECTED, String::class.java, String::class.java, String::class.java),
-            SignalInfo(SIGNAL_BLUETOOTH_DEVICE_FOUND, String::class.java, String::class.java, Int::class.java),
+            SignalInfo(SIGNAL_BLUETOOTH_DEVICE_FOUND, Dictionary::class.java),
             SignalInfo(SIGNAL_NOTIFICATION_STATE_UPDATE_FAILED, String::class.java, String::class.java),
             SignalInfo(SIGNAL_CURRENT_TIME_RECEIVED, String::class.java),
             SignalInfo(SIGNAL_BATTERY_LEVEL_RECEIVED, UInt::class.java),
