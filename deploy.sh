@@ -1,5 +1,10 @@
 #!/bin/sh
 
-cp -a godotandroidble/blessed/build/outputs/aar/Blessed.aar /srv/apps/godot/bike-vr/android/plugins/godotandroidble/blessed-debug.aar
-cp -a godotandroidble/app/build/outputs/aar/GodotAndroidBle.aar /srv/apps/godot/bike-vr/android/plugins/godotandroidble/godotandroidble-debug.aar
+variant="debug"
+if [ "$1" = "release" ]; then
+    variant=$1
+fi
+
+cp -a blessed/build/outputs/aar/blessed-${variant}.aar ~/Documents/Godot/ble-test/addons/godotandroidble/bin/${variant}/
+cp -a app/build/outputs/aar/godotandroidble-${variant}.aar ~/Documents/Godot/ble-test/addons/godotandroidble/bin/${variant}/
 

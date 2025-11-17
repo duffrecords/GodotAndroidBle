@@ -14,7 +14,7 @@ func _exit_tree():
 
 
 class AndroidExportPlugin extends EditorExportPlugin:
-	var PLUGIN_NAME = "GodotAndroidBle"
+	var _plugin_name = "GodotAndroidBle"
 
 	# Specifies which platform is supported by the plugin.
 	func _supports_platform(platform):
@@ -30,4 +30,4 @@ class AndroidExportPlugin extends EditorExportPlugin:
 			return PackedStringArray([_plugin_name + "/bin/release/" + _plugin_name + "-release.aar"])
 
 	func _get_name():
-		return PLUGIN_NAME
+		return _plugin_name

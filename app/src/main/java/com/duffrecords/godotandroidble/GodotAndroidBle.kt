@@ -1,54 +1,372 @@
 package com.duffrecords.godotandroidble
 
 import android.Manifest
-import android.Manifest.permission
+import android.annotation.SuppressLint
 import android.app.Activity
-import android.app.Activity.RESULT_OK
-import android.app.Application
-import android.app.Instrumentation.ActivityResult
 import android.bluetooth.BluetoothAdapter
-import android.content.Intent
+import android.bluetooth.BluetoothGattCharacteristic
+import android.bluetooth.le.ScanResult
 import android.content.pm.PackageManager
-import android.os.Build
-import androidx.activity.ComponentActivity
-import androidx.activity.result.contract.ActivityResultContracts
-import androidx.core.app.ActivityCompat
+import android.os.Handler
+import android.os.HandlerThread
+import android.os.Process
+import androidx.annotation.RequiresPermission
+import androidx.core.content.ContextCompat
+import com.welie.blessed.BluetoothBytesBuilder
+import com.welie.blessed.BluetoothBytesParser
+import com.welie.blessed.BluetoothCentralManager
+import com.welie.blessed.BluetoothCentralManagerCallback
+import com.welie.blessed.BluetoothPeripheral
+import com.welie.blessed.BluetoothPeripheralCallback
+import com.welie.blessed.BondState
+import com.welie.blessed.ConnectionPriority
+import com.welie.blessed.GattStatus
+import com.welie.blessed.HciStatus
+import com.welie.blessed.WriteType.WITH_RESPONSE
+import com.welie.blessed.currentTimeByteArrayOf
+import com.welie.blessed.from16BitString
+import com.welie.blessed.getString
+import com.welie.blessed.getUInt8
+import com.welie.blessed.supportsWritingWithResponse
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
 import org.godotengine.godot.Dictionary
 import org.godotengine.godot.Godot
 import org.godotengine.godot.plugin.GodotPlugin
 import org.godotengine.godot.plugin.SignalInfo
 import org.godotengine.godot.plugin.UsedByGodot
-import timber.log.Timber
+// import timber.log.Timber
+import java.nio.ByteOrder
+import java.text.DateFormat
+import java.text.SimpleDateFormat
+import java.util.Calendar
+import java.util.Locale
+import java.util.TimeZone
+import java.util.UUID
 
-interface SignalEmitter {
-    fun emitToGodot(signalName: String, vararg args: Any?)
-}
-class GodotAndroidBle(godot: Godot): GodotPlugin(godot), SignalEmitter {
+@SuppressLint("StaticFieldLeak")
+class GodotAndroidBle(godot: Godot): GodotPlugin(godot) {
+
+    // Setup our own thread for BLE.
+    // Use Handler(Looper.getMainLooper()) if you want to run on main thread
+    private val handlerThread = HandlerThread("Blessed", Process.THREAD_PRIORITY_DEFAULT)
+    private lateinit var handler : Handler
+
+    lateinit var centralManager: BluetoothCentralManager
+
+    private val scope = CoroutineScope(Dispatchers.IO + SupervisorJob())
+
+    // UUIDs for the Blood Pressure service (BLP)
+    private val BLP_SERVICE_UUID: UUID = UUID.fromString("00001810-0000-1000-8000-00805f9b34fb")
+    private val BLP_MEASUREMENT_CHARACTERISTIC_UUID: UUID = UUID.fromString("00002A35-0000-1000-8000-00805f9b34fb")
+
+    // UUIDs for the Health Thermometer service (HTS)
+    private val HTS_SERVICE_UUID = from16BitString("1809")
+    private val HTS_MEASUREMENT_CHARACTERISTIC_UUID = from16BitString("2A1C")
+
+    // UUIDs for the Heart Rate service (HRS)
+    private val HRS_SERVICE_UUID: UUID = UUID.fromString("0000180D-0000-1000-8000-00805f9b34fb")
+    private val HRS_MEASUREMENT_CHARACTERISTIC_UUID: UUID = UUID.fromString("00002A37-0000-1000-8000-00805f9b34fb")
+
+    // UUIDs for the Device Information service (DIS)
+    private val DIS_SERVICE_UUID: UUID = UUID.fromString("0000180A-0000-1000-8000-00805f9b34fb")
+    private val MANUFACTURER_NAME_CHARACTERISTIC_UUID: UUID = UUID.fromString("00002A29-0000-1000-8000-00805f9b34fb")
+    private val MODEL_NUMBER_CHARACTERISTIC_UUID: UUID = UUID.fromString("00002A24-0000-1000-8000-00805f9b34fb")
+
+    // UUIDs for the Current Time service (CTS)
+    private val CTS_SERVICE_UUID: UUID = UUID.fromString("00001805-0000-1000-8000-00805f9b34fb")
+    private val CURRENT_TIME_CHARACTERISTIC_UUID: UUID = UUID.fromString("00002A2B-0000-1000-8000-00805f9b34fb")
+
+    // UUIDs for the Battery Service (BAS)
+    private val BTS_SERVICE_UUID: UUID = UUID.fromString("0000180F-0000-1000-8000-00805f9b34fb")
+    private val BATTERY_LEVEL_CHARACTERISTIC_UUID: UUID = UUID.fromString("00002A19-0000-1000-8000-00805f9b34fb")
+
+    // UUIDs for the Pulse Oximeter Service (PLX)
+    val PLX_SERVICE_UUID: UUID = UUID.fromString("00001822-0000-1000-8000-00805f9b34fb")
+    private val PLX_SPOT_MEASUREMENT_CHAR_UUID: UUID = UUID.fromString("00002a5e-0000-1000-8000-00805f9b34fb")
+    private val PLX_CONTINUOUS_MEASUREMENT_CHAR_UUID: UUID = UUID.fromString("00002a5f-0000-1000-8000-00805f9b34fb")
+
+    // UUIDs for the Weight Scale Service (WSS)
+    val WSS_SERVICE_UUID: UUID = UUID.fromString("0000181D-0000-1000-8000-00805f9b34fb")
+    private val WSS_MEASUREMENT_CHAR_UUID: UUID = UUID.fromString("00002A9D-0000-1000-8000-00805f9b34fb")
+    val GLUCOSE_SERVICE_UUID: UUID = UUID.fromString("00001808-0000-1000-8000-00805f9b34fb")
+    val GLUCOSE_MEASUREMENT_CHARACTERISTIC_UUID: UUID = UUID.fromString("00002A18-0000-1000-8000-00805f9b34fb")
+    val GLUCOSE_RECORD_ACCESS_POINT_CHARACTERISTIC_UUID: UUID = UUID.fromString("00002A52-0000-1000-8000-00805f9b34fb")
+
+    // Contour Glucose Service
+    val CONTOUR_SERVICE_UUID: UUID = UUID.fromString("00000000-0002-11E2-9E96-0800200C9A66")
+    private val CONTOUR_CLOCK = UUID.fromString("00001026-0002-11E2-9E96-0800200C9A66")
+
+    // UUIDs for the Cycling Speed and Cadence service (CSCS)
+    private val CSC_SERVICE_UUID = UUID.fromString("00001816-0000-1000-8000-00805f9b34fb")
+    private val CSC_MEASUREMENT_CHARACTERISTIC_UUID = UUID.fromString("00002A5B-0000-1000-8000-00805f9b34fb")
+    // private static final UUID CSC_FEATURE_CHARACTERISTIC_UUID = UUID.fromString("00002A5C-0000-1000-8000-00805f9b34fb");
+    // private static final UUID CSC_LOCATION_CHARACTERISTIC_UUID = UUID.fromString("00002A5D-0000-1000-8000-00805f9b34fb");
+
+    // UUIDs for the Cycling Power service (CPS)
+    private val CP_SERVICE_UUID = UUID.fromString("00001818-0000-1000-8000-00805f9b34fb")
+    private val CP_MEASUREMENT_CHARACTERISTIC_UUID = UUID.fromString("00002A63-0000-1000-8000-00805f9b34fb")
+    // private static final UUID CP_FEATURE_CHARACTERISTIC_UUID = UUID.fromString("00002A65-0000-1000-8000-00805f9b34fb");
+
+    // UUIDs for the Running Speed and Cadence service (RSCS)
+    private val RSC_SERVICE_UUID = UUID.fromString("00001814-0000-1000-8000-00805f9b34fb")
+    private val RSC_MEASUREMENT_CHARACTERISTIC_UUID = UUID.fromString("00002A53-0000-1000-8000-00805f9b34fb")
+    // private static final UUID RSC_FEATURE_CHARACTERISTIC_UUID = UUID.fromString("00002A54-0000-1000-8000-00805f9b34fb");
+
+    private val bluetoothPeripheralCallback = object : BluetoothPeripheralCallback() {
+        override fun onServicesDiscovered(peripheral: BluetoothPeripheral) {
+            peripheral.requestConnectionPriority(ConnectionPriority.HIGH)
+            peripheral.readCharacteristic(DIS_SERVICE_UUID, MANUFACTURER_NAME_CHARACTERISTIC_UUID)
+            peripheral.readCharacteristic(DIS_SERVICE_UUID, MODEL_NUMBER_CHARACTERISTIC_UUID)
+
+            // Write Current Time if possible
+            peripheral.getCharacteristic(CTS_SERVICE_UUID, CURRENT_TIME_CHARACTERISTIC_UUID)?.let {
+                peripheral.startNotify(it)
+
+                // If it has the write property we write the current time
+                if (it.supportsWritingWithResponse()) {
+                    // Write the current time unless it is an Omron device
+                    if (!peripheral.name.contains("BLEsmart_", true)) {
+                        val currentTime = currentTimeByteArrayOf(Calendar.getInstance())
+                        peripheral.writeCharacteristic(it, currentTime, WITH_RESPONSE)
+                    }
+                }
+            }
+
+            peripheral.readCharacteristic(BTS_SERVICE_UUID, BATTERY_LEVEL_CHARACTERISTIC_UUID)
+            peripheral.startNotify(BLP_SERVICE_UUID, BLP_MEASUREMENT_CHARACTERISTIC_UUID)
+            peripheral.startNotify(HTS_SERVICE_UUID, HTS_MEASUREMENT_CHARACTERISTIC_UUID)
+            peripheral.startNotify(HRS_SERVICE_UUID, HRS_MEASUREMENT_CHARACTERISTIC_UUID)
+            peripheral.startNotify(GLUCOSE_SERVICE_UUID, GLUCOSE_MEASUREMENT_CHARACTERISTIC_UUID)
+            peripheral.startNotify(PLX_SERVICE_UUID, PLX_SPOT_MEASUREMENT_CHAR_UUID)
+            peripheral.startNotify(PLX_SERVICE_UUID, PLX_CONTINUOUS_MEASUREMENT_CHAR_UUID)
+            peripheral.startNotify(WSS_SERVICE_UUID, WSS_MEASUREMENT_CHAR_UUID)
+            peripheral.startNotify(CONTOUR_SERVICE_UUID, CONTOUR_CLOCK)
+            peripheral.startNotify(CSC_SERVICE_UUID, CSC_MEASUREMENT_CHARACTERISTIC_UUID)
+            peripheral.startNotify(CP_SERVICE_UUID, CP_MEASUREMENT_CHARACTERISTIC_UUID)
+            peripheral.startNotify(RSC_SERVICE_UUID, RSC_MEASUREMENT_CHARACTERISTIC_UUID)
+        }
+
+        override fun onNotificationStateUpdate(peripheral: BluetoothPeripheral, characteristic: BluetoothGattCharacteristic, status: GattStatus) {
+            if (status == GattStatus.SUCCESS) {
+                val isNotifying = peripheral.isNotifying(characteristic)
+                if (characteristic.uuid == CONTOUR_CLOCK) {
+                    writeContourClock(peripheral)
+                } else if (characteristic.uuid == GLUCOSE_RECORD_ACCESS_POINT_CHARACTERISTIC_UUID) {
+                    writeGetAllGlucoseMeasurements(peripheral)
+                }
+            } else {
+                emitSignal(SIGNAL_NOTIFICATION_STATE_UPDATE_FAILED, characteristic.uuid.toString(), status.name)
+                //Timber.e("ERROR: Changing notification state failed for %s (%s)", characteristic.uuid, status)
+            }
+        }
+
+        override fun onCharacteristicUpdate(peripheral: BluetoothPeripheral, value: ByteArray, characteristic: BluetoothGattCharacteristic, status: GattStatus) {
+            when (characteristic.uuid) {
+                MANUFACTURER_NAME_CHARACTERISTIC_UUID -> {
+                    emitSignal(SIGNAL_MANUFACTURER_NAME_RECEIVED, value.getString())
+                }
+
+                MODEL_NUMBER_CHARACTERISTIC_UUID -> {
+                    emitSignal(SIGNAL_MODEL_NUMBER_RECEIVED, value.getString())
+                }
+
+                BATTERY_LEVEL_CHARACTERISTIC_UUID -> {
+                    emitSignal(SIGNAL_BATTERY_LEVEL_RECEIVED, value.getUInt8().toUInt())
+                }
+
+                CURRENT_TIME_CHARACTERISTIC_UUID -> {
+                    val currentTime = BluetoothBytesParser(value).getDateTime()
+                    val dateFormat: DateFormat = SimpleDateFormat("dd-MM-yyyy HH:mm:ss", Locale.ENGLISH)
+                    emitSignal(
+                        SIGNAL_CURRENT_TIME_RECEIVED,
+                        dateFormat.format(currentTime)
+                    )
+                }
+
+                HTS_MEASUREMENT_CHARACTERISTIC_UUID -> {
+                    val measurement = TemperatureMeasurement.fromBytes(value) ?: return
+                    emitSignal(
+                        SIGNAL_TEMPERATURE_MEASUREMENT_RECEIVED,
+                        measurement.toDictionary()
+                    )
+                }
+
+                WSS_MEASUREMENT_CHAR_UUID -> {
+                    val measurement = WeightMeasurement.fromBytes(value) ?: return
+                    emitSignal(
+                        SIGNAL_WEIGHT_MEASUREMENT_RECEIVED,
+                        measurement.toDictionary()
+                    )
+                }
+
+                PLX_SPOT_MEASUREMENT_CHAR_UUID -> {
+                    val measurement = PulseOximeterSpotMeasurement.fromBytes(value) ?: return
+                    emitSignal(
+                        SIGNAL_PULSE_OXIMETER_SPOT_MEASUREMENT_RECEIVED,
+                        measurement.toDictionary()
+                    )
+                }
+
+                PLX_CONTINUOUS_MEASUREMENT_CHAR_UUID -> {
+                    val measurement = PulseOximeterContinuousMeasurement.fromBytes(value) ?: return
+                    emitSignal(
+                        SIGNAL_PULSE_OXIMETER_CONTINUOUS_MEASUREMENT_RECEIVED,
+                        measurement.toDictionary()
+                    )
+                }
+
+                BLP_MEASUREMENT_CHARACTERISTIC_UUID -> {
+                    val measurement = BloodPressureMeasurement.fromBytes(value) ?: return
+                    emitSignal(
+                        SIGNAL_BLOOD_PRESSURE_MEASUREMENT_RECEIVED,
+                        measurement.toDictionary()
+                    )
+                }
+
+                GLUCOSE_MEASUREMENT_CHARACTERISTIC_UUID -> {
+                    val measurement = GlucoseMeasurement.fromBytes(value) ?: return
+                    emitSignal(
+                        SIGNAL_GLUCOSE_MEASUREMENT_RECEIVED,
+                        measurement.toDictionary()
+                    )
+                }
+
+                HRS_MEASUREMENT_CHARACTERISTIC_UUID -> {
+                    val measurement = HeartRateMeasurement.fromBytes(value) ?: return
+                    emitSignal(
+                        SIGNAL_HEART_RATE_MEASUREMENT_RECEIVED,
+                        measurement.toDictionary()
+                    )
+                }
+
+                CSC_MEASUREMENT_CHARACTERISTIC_UUID -> {
+                    val measurement = CyclingCadenceMeasurement.fromBytes(value) ?: return
+                    emitSignal(
+                        SIGNAL_CYCLING_CADENCE_MEASUREMENT_RECEIVED,
+                        measurement.toDictionary()
+                    )
+                }
+
+                CP_MEASUREMENT_CHARACTERISTIC_UUID -> {
+                    val measurement = CyclingPowerMeasurement.fromBytes(value) ?: return
+                    emitSignal(
+                        SIGNAL_CYCLING_POWER_MEASUREMENT_RECEIVED,
+                        measurement.toDictionary()
+                    )
+                }
+
+                RSC_MEASUREMENT_CHARACTERISTIC_UUID -> {
+                    val measurement = RunningCadenceMeasurement.fromBytes(value) ?: return
+                    emitSignal(
+                        SIGNAL_RUNNING_CADENCE_MEASUREMENT_RECEIVED,
+                        measurement.toDictionary()
+                    )
+                }
+            }
+        }
+
+        private fun writeContourClock(peripheral: BluetoothPeripheral) {
+            val calendar = Calendar.getInstance()
+            val offsetInMinutes = calendar.timeZone.rawOffset / 60000
+            calendar.timeZone = TimeZone.getTimeZone("UTC")
+
+            val bytes = BluetoothBytesBuilder(10u, ByteOrder.LITTLE_ENDIAN)
+                .addUInt8(1u)
+                .addUInt16(calendar[Calendar.YEAR])
+                .addUInt8(calendar[Calendar.MONTH] + 1)
+                .addUInt8(calendar[Calendar.DAY_OF_MONTH])
+                .addUInt8(calendar[Calendar.HOUR_OF_DAY])
+                .addUInt8(calendar[Calendar.MINUTE])
+                .addUInt8(calendar[Calendar.SECOND])
+                .addInt16(offsetInMinutes)
+                .build()
+
+            peripheral.writeCharacteristic(CONTOUR_SERVICE_UUID, CONTOUR_CLOCK, bytes, WITH_RESPONSE)
+        }
+
+        private fun writeGetAllGlucoseMeasurements(peripheral: BluetoothPeripheral) {
+            val opCodeReportStoredRecords: Byte = 1
+            val operatorAllRecords: Byte = 1
+            val command = byteArrayOf(opCodeReportStoredRecords, operatorAllRecords)
+            peripheral.writeCharacteristic(GLUCOSE_SERVICE_UUID, GLUCOSE_RECORD_ACCESS_POINT_CHARACTERISTIC_UUID, command, WITH_RESPONSE)
+        }
+    }
+
+
+    private val bluetoothCentralManagerCallback = object : BluetoothCentralManagerCallback() {
+        override fun onDiscovered(peripheral: BluetoothPeripheral, scanResult: ScanResult) {
+            emitSignal(
+                SIGNAL_BLUETOOTH_DEVICE_FOUND,
+                peripheral.name,
+                peripheral.address,
+                scanResult.rssi
+            )
+            centralManager.stopScan()
+
+            if (peripheral.needsBonding() && peripheral.bondState == BondState.NONE) {
+                // Create a bond immediately to avoid double pairing popups
+                centralManager.createBond(peripheral, bluetoothPeripheralCallback)
+            } else {
+                centralManager.connect(peripheral, bluetoothPeripheralCallback)
+            }
+        }
+
+        override fun onConnected(peripheral: BluetoothPeripheral) {
+            emitSignal(
+                SIGNAL_BLUETOOTH_DEVICE_CONNECTED,
+                peripheral.name,
+                peripheral.address
+            )
+        }
+
+        override fun onDisconnected(peripheral: BluetoothPeripheral, status: HciStatus) {
+            emitSignal(
+                SIGNAL_BLUETOOTH_DEVICE_DISCONNECTED,
+                peripheral.name,
+                peripheral.address,
+                status.name
+            )
+            handler.postDelayed(
+                { centralManager.autoConnect(peripheral, bluetoothPeripheralCallback) },
+                15000
+            )
+        }
+
+        override fun onConnectionFailed(peripheral: BluetoothPeripheral, status: HciStatus) {
+            emitSignal(
+                SIGNAL_BLUETOOTH_DEVICE_CONNECTION_FAILED,
+                peripheral.name,
+                peripheral.address,
+                status.name
+            )
+        }
+
+        override fun onBluetoothAdapterStateChanged(state: Int) {
+            emitSignal(SIGNAL_BLUETOOTH_STATE_CHANGED, state)
+            if (state == BluetoothAdapter.STATE_ON) {
+                // Bluetooth is on now, start scanning again
+                // Scan for peripherals with a certain service UUIDs
+                centralManager.startPairingPopupHack()
+                startScanning()
+            }
+        }
+    }
+
 
     companion object {
 
-        private const val PLUGIN_NAME = "GodotAndroidBle"
+        private const val PLUGIN_NAME = "godotandroidble"
 
-        // List of constants for results of permission request
-        const val PERMISSION_RESULT_GRANTED = 0
-        const val PERMISSION_RESULT_DENIED = 1
-        const val PERMISSION_RESULT_DENIED_SHOW_RATIONALE = 2
-
-        // List of return values
-        const val PERMISSION_CODE_UNAVAILABLE = -1
-        const val PERMISSION_CODE_OK = 0
-
-        const val BLUETOOTH_NOT_SUPPORTED = -1
-        const val BLUETOOTH_ENABLED = 0
-        const val BLUETOOTH_DISABLED = 1
-
-        const val SIGNAL_BLUETOOTH_ENABLE_REQUEST_COMPLETED = "bt_enable_request_completed"
-        const val SIGNAL_PERMISSION_REQUEST_COMPLETED = "permission_request_completed"
+        const val SIGNAL_PLUGIN_MESSAGE = "plugin_message"
+        const val SIGNAL_PERMISSION_REQUIRED = "permission_required"
         const val SIGNAL_BLUETOOTH_DEVICE_CONNECTED = "bluetooth_device_connected"
         const val SIGNAL_BLUETOOTH_DEVICE_DISCONNECTED = "bluetooth_device_disconnected"
         const val SIGNAL_BLUETOOTH_DEVICE_CONNECTION_FAILED = "bluetooth_device_connection_failed"
         const val SIGNAL_BLUETOOTH_STATE_CHANGED = "bluetooth_state_changed"
         const val SIGNAL_BLUETOOTH_DEVICE_FOUND = "bluetooth_device_found"
+        const val SIGNAL_NOTIFICATION_STATE_UPDATE_FAILED  = "notification_state_update_failed"
         const val SIGNAL_CURRENT_TIME_RECEIVED = "current_time_received"
         const val SIGNAL_BATTERY_LEVEL_RECEIVED = "battery_level_received"
         const val SIGNAL_MANUFACTURER_NAME_RECEIVED = "manufacturer_name_received"
@@ -64,24 +382,22 @@ class GodotAndroidBle(godot: Godot): GodotPlugin(godot), SignalEmitter {
         const val SIGNAL_TEMPERATURE_MEASUREMENT_RECEIVED = "temperature_measurement_received"
         const val SIGNAL_WEIGHT_MEASUREMENT_RECEIVED = "weight_measurement_received"
 
-        private const val REQUEST_ENABLE_BT = 1001
-        private const val REQ_BLE_PERMISSIONS = 2001
     }
 
     private val currentActivity: Activity = activity ?: throw IllegalStateException()
-    private val mPermissions = mutableMapOf<Int, String>()
 
-    override fun getPluginName() = "GodotAndroidBle"
+    override fun getPluginName() = BuildConfig.GODOT_PLUGIN_NAME
 
     override fun getPluginSignals(): MutableSet<SignalInfo> {
         return mutableSetOf(
-            SignalInfo(SIGNAL_BLUETOOTH_ENABLE_REQUEST_COMPLETED, Int::class.java),
-            SignalInfo(SIGNAL_PERMISSION_REQUEST_COMPLETED, Any::class.java, String::class.java, Any::class.java),
+            SignalInfo(SIGNAL_PLUGIN_MESSAGE, String::class.java),
+            SignalInfo(SIGNAL_PERMISSION_REQUIRED, String::class.java),
             SignalInfo(SIGNAL_BLUETOOTH_STATE_CHANGED, Int::class.java),
             SignalInfo(SIGNAL_BLUETOOTH_DEVICE_CONNECTED, String::class.java, String::class.java),
             SignalInfo(SIGNAL_BLUETOOTH_DEVICE_CONNECTION_FAILED, String::class.java, String::class.java, String::class.java),
             SignalInfo(SIGNAL_BLUETOOTH_DEVICE_DISCONNECTED, String::class.java, String::class.java, String::class.java),
             SignalInfo(SIGNAL_BLUETOOTH_DEVICE_FOUND, String::class.java, String::class.java, Int::class.java),
+            SignalInfo(SIGNAL_NOTIFICATION_STATE_UPDATE_FAILED, String::class.java, String::class.java),
             SignalInfo(SIGNAL_CURRENT_TIME_RECEIVED, String::class.java),
             SignalInfo(SIGNAL_BATTERY_LEVEL_RECEIVED, UInt::class.java),
             SignalInfo(SIGNAL_MANUFACTURER_NAME_RECEIVED, String::class.java),
@@ -99,256 +415,156 @@ class GodotAndroidBle(godot: Godot): GodotPlugin(godot), SignalEmitter {
         )
     }
 
-    // Public bridge that BluetoothHandler can call
-    override fun emitToGodot(signalName: String, vararg args: Any?) {
-        emitSignal(signalName, *args)
+    @UsedByGodot
+    fun initPlugin() {
+        // Start the thread and create our private Handler
+        handlerThread.start()
+        handler = Handler(handlerThread.looper)
+        this.centralManager = BluetoothCentralManager(this.context, bluetoothCentralManagerCallback, handler)
     }
 
-    init {
-        mPermissions[1] = permission.ACCESS_COARSE_LOCATION
-        mPermissions[2] = permission.ACCESS_FINE_LOCATION
-        mPermissions[3] = permission.BLUETOOTH_SCAN
-        mPermissions[4] = permission.BLUETOOTH_CONNECT
-        BluetoothHandler.initialize(context, this)
+    @UsedByGodot
+    fun isBluetoothEnabled(): Boolean {
+        return centralManager.isBluetoothEnabled
+    }
+
+    @UsedByGodot
+    fun permissionsGranted(): Boolean {
+        return centralManager.permissionsGranted()
+    }
+
+    // Permission verification
+    fun hasBluetoothScanPermission(): Boolean {
+        return activity?.let {
+            ContextCompat.checkSelfPermission(it, Manifest.permission.BLUETOOTH_SCAN) == PackageManager.PERMISSION_GRANTED
+        } == true
+    }
+
+    fun hasBluetoothConnectPermission(): Boolean {
+        return activity?.let {
+            ContextCompat.checkSelfPermission(it, Manifest.permission.BLUETOOTH_CONNECT) == PackageManager.PERMISSION_GRANTED
+        } == true
+    }
+
+    @RequiresPermission(allOf = [Manifest.permission.BLUETOOTH_SCAN,Manifest.permission.BLUETOOTH_CONNECT])
+    @UsedByGodot
+    fun isbluetoothReady(): Boolean {
+        if (!centralManager.isBluetoothEnabled) {
+            emitSignal(SIGNAL_PLUGIN_MESSAGE,"cannot find bluetooth adapter")
+            return false
+        }
+
+        if (!hasBluetoothScanPermission()) {
+            emitSignal(SIGNAL_PERMISSION_REQUIRED, Manifest.permission.BLUETOOTH_SCAN)
+            return false
+        }
+
+        if (!hasBluetoothConnectPermission()) {
+            emitSignal(SIGNAL_PERMISSION_REQUIRED, Manifest.permission.BLUETOOTH_CONNECT)
+            return false
+        }
+
+        // Bluetooth initialized
+        return true
     }
 
     @UsedByGodot
     fun startScanning() {
-        BluetoothHandler.startScanning()
+        if(centralManager.isNotScanning) {
+            centralManager.scanForPeripheralsWithServices(
+                setOf(
+                    BLP_SERVICE_UUID,
+                    GLUCOSE_SERVICE_UUID,
+                    HRS_SERVICE_UUID,
+                    HTS_SERVICE_UUID,
+                    PLX_SERVICE_UUID,
+                    WSS_SERVICE_UUID,
+                    CSC_SERVICE_UUID,
+                    CP_SERVICE_UUID,
+                    RSC_SERVICE_UUID
+                )
+            )
+        }
     }
 
     @UsedByGodot
     fun stopScanning() {
-        BluetoothHandler.stopScanning()
+        if(centralManager.isScanning) {
+            centralManager.stopScan()
+        }
     }
 
     @UsedByGodot
     fun scanForBlpService() {
-        BluetoothHandler.scanForBlpService()
+        if(centralManager.isNotScanning)
+            centralManager.scanForPeripheralsWithServices(setOf(BLP_SERVICE_UUID))
     }
 
     @UsedByGodot
     fun scanForGlucoseService() {
-        BluetoothHandler.scanForGlucoseService()
+        if(centralManager.isNotScanning)
+            centralManager.scanForPeripheralsWithServices(setOf(GLUCOSE_SERVICE_UUID))
     }
 
     @UsedByGodot
     fun scanForHrsService() {
-        BluetoothHandler.scanForHrsService()
+        if(centralManager.isNotScanning)
+            centralManager.scanForPeripheralsWithServices(setOf(HRS_SERVICE_UUID))
     }
 
     @UsedByGodot
     fun scanForHtsService() {
-        BluetoothHandler.scanForHtsService()
+        if(centralManager.isNotScanning)
+            centralManager.scanForPeripheralsWithServices(setOf(HTS_SERVICE_UUID))
     }
 
     @UsedByGodot
     fun scanForPlxService() {
-        BluetoothHandler.scanForPlxService()
+        if(centralManager.isNotScanning)
+            centralManager.scanForPeripheralsWithServices(setOf(PLX_SERVICE_UUID))
     }
 
     @UsedByGodot
     fun scanForWssService() {
-        BluetoothHandler.scanForWssService()
+        if(centralManager.isNotScanning)
+            centralManager.scanForPeripheralsWithServices(setOf(WSS_SERVICE_UUID))
     }
 
     @UsedByGodot
     fun scanForCscService() {
-        BluetoothHandler.scanForCscService()
+        if(centralManager.isNotScanning)
+            centralManager.scanForPeripheralsWithServices(setOf(CSC_SERVICE_UUID))
     }
 
     @UsedByGodot
     fun scanForCpService() {
-        BluetoothHandler.scanForCpService()
+        if(centralManager.isNotScanning)
+            centralManager.scanForPeripheralsWithServices(setOf(CP_SERVICE_UUID))
     }
 
     @UsedByGodot
     fun scanForRscService() {
-        BluetoothHandler.scanForRscService()
+        if(centralManager.isNotScanning)
+            centralManager.scanForPeripheralsWithServices(setOf(RSC_SERVICE_UUID))
     }
 
     @UsedByGodot
     fun scanForAddress(address: String) {
-        BluetoothHandler.scanForAddress(address)
+        if(centralManager.isNotScanning)
+            centralManager.scanForPeripheralsWithAddresses(setOf(address))
     }
 
-    /**
-     * Checks if Bluetooth is enabled and makes a request to enable it if not
-     */
     @UsedByGodot
-    fun requestEnableBluetooth() {
-        val act = activity ?: return  // or godot.getActivity()
-
-        if (BluetoothHandler.centralManager.isBleSupported) {
-            emitSignal(SIGNAL_BLUETOOTH_ENABLE_REQUEST_COMPLETED, BLUETOOTH_NOT_SUPPORTED)
-            return
-        }
-
-        // Already enabled, just notify Godot
-        if (BluetoothHandler.centralManager.isBluetoothEnabled) {
-            emitSignal(SIGNAL_BLUETOOTH_ENABLE_REQUEST_COMPLETED, BLUETOOTH_ENABLED)
-            return
-        }
-
-        // API 31+ requires BLUETOOTH_CONNECT before touching the adapter / request flow
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-            val hasConnect = ActivityCompat.checkSelfPermission(
-                act,
-                android.Manifest.permission.BLUETOOTH_CONNECT
-            ) == PackageManager.PERMISSION_GRANTED
-
-            if (!hasConnect) {
-                ActivityCompat.requestPermissions(
-                    act,
-                    arrayOf(android.Manifest.permission.BLUETOOTH_CONNECT),
-                    REQ_BLE_PERMISSIONS
-                )
-                // Wait for onMainRequestPermissionsResult to continue
-                return
-            }
-        }
-        val intent = Intent(BluetoothAdapter.ACTION_REQUEST_ENABLE)
-
-        // Make sure this runs on the UI thread
-        act.runOnUiThread {
-            try {
-                act.startActivityForResult(intent, REQUEST_ENABLE_BT)
-            } catch (se: SecurityException) {
-                Timber.e("Security exception when requesting Bluetooth enable: ${se.message}")
-                emitSignal(SIGNAL_BLUETOOTH_ENABLE_REQUEST_COMPLETED, BLUETOOTH_DISABLED)
-            }
-        }
-    }
-
-    /**
-     * Callback for the Bluetooth request launcher
-     */
-    override fun onMainActivityResult(
-        requestCode: Int,
-        resultCode: Int,
-        data: Intent?
-    ): Unit {
-        if (requestCode == REQUEST_ENABLE_BT) {
-            if (resultCode == Activity.RESULT_OK) {
-                emitSignal(SIGNAL_BLUETOOTH_ENABLE_REQUEST_COMPLETED, BLUETOOTH_ENABLED)
-            } else {
-                emitSignal(SIGNAL_BLUETOOTH_ENABLE_REQUEST_COMPLETED, BLUETOOTH_DISABLED)
-            }
-        }
-    }
-
-    /**
-     * Checks if required Bluetooth permissions are granted and makes a request if not
-     */
-    @UsedByGodot
-    fun ensureBlePermissions(): Boolean {
-        val act = activity ?: return false
-
-        // If we're below runtime permission APIs, nothing to do
-        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.M) {
-            return true
-        }
-
-        if (BluetoothHandler.centralManager.permissionsGranted()) {
-            return true
-        }
-
-        val missing = BluetoothHandler.centralManager.getMissingPermissions()
-        if (missing.isEmpty()) {
-            return true
-        }
-
-        // Request missing permissions on UI thread
-        act.runOnUiThread {
-            ActivityCompat.requestPermissions(
-                act,
-                missing,
-                REQ_BLE_PERMISSIONS
-            )
-        }
-
-        // Not granted yet – wait for callback
-        return false
-    }
-
-    /**
-     * Checks if a permission has been provided for the current activity or not.
-     * @param permissionCode : Integer code for the permissions
-     */
-    @UsedByGodot
-    fun checkPermission(permissionCode: Int) : Int {
-        val permissionString = mPermissions[permissionCode] ?: return PERMISSION_CODE_UNAVAILABLE
-        return checkPermissionString(permissionString)
-    }
-
-    /**
-     * Checks if a permission has been provided for the current activity or not.
-     * @param permission : String name of the permission. See [Manifest.permission]
-     */
-    @UsedByGodot
-    fun checkPermissionString(permission: String) : Int {
-        return when (currentActivity.checkSelfPermission(permission)) {
-            PackageManager.PERMISSION_GRANTED -> {
-
-                PERMISSION_RESULT_GRANTED
-            }
-            else -> {
-                val showRationale = currentActivity.shouldShowRequestPermissionRationale(permission)
-                if (showRationale)
-                    PERMISSION_RESULT_DENIED_SHOW_RATIONALE
-                else
-                    PERMISSION_RESULT_DENIED
-            }
-        }
-    }
-
-    /**
-     * Launches the permission request launcher for the given permission code
-     * @param permissionCode one of the defined code for permission
-     */
-    @UsedByGodot
-    fun requestPermission(permissionCode: Int):Int {
-        val permissionString = mPermissions[permissionCode] ?: return PERMISSION_CODE_UNAVAILABLE
-        requestPermissionString(permissionString)
-        return PERMISSION_CODE_OK
-    }
-
-    /**
-     * Launches the permission request launcher for the given permission string
-     * @param permission one of string value as specified in [Manifest.permission]
-     */
-    @UsedByGodot
-    fun requestPermissionString(permission: String) {
-        currentActivity.requestPermissions(arrayOf(permission), REQ_BLE_PERMISSIONS)
-    }
-
-
-    /**
-     * Callback for the Permission request launcher
-     */
-    override fun onMainRequestPermissionsResult(
-        requestCode: Int,
-        permissions: Array<out String>?,
-        grantResults: IntArray?
-    ) {
-        super.onMainRequestPermissionsResult(requestCode, permissions, grantResults)
-        if (requestCode == REQ_BLE_PERMISSIONS && permissions != null && permissions.isNotEmpty()){
-
-            // iterate through all permissions requested
-            for (i in permissions.indices) {
-                val requestedPermission = permissions[i]
-                val permissionCode = if (mPermissions.containsValue(requestedPermission)){
-                    mPermissions.keys.first { requestedPermission == mPermissions[it]}
-                }else 0
-                if (grantResults?.get(i) == PackageManager.PERMISSION_GRANTED)
-
-                    emitSignal(SIGNAL_PERMISSION_REQUEST_COMPLETED,
-                        permissionCode, requestedPermission, PERMISSION_RESULT_GRANTED)
-                else
-
-                    emitSignal(SIGNAL_PERMISSION_REQUEST_COMPLETED,
-                        permissionCode, requestedPermission, PERMISSION_RESULT_DENIED)
-            }
-        }
+    fun scanForName(name: String) {
+        if(centralManager.isNotScanning)
+            centralManager.scanForPeripheralsWithNames(setOf(name))
     }
 }
+
+// Peripheral extension to check if the peripheral needs to be bonded first
+// This is application specific of course
+fun BluetoothPeripheral.needsBonding(): Boolean {
+    return name.startsWith("Contour") ||
+            name.startsWith("A&D")
+}
+

@@ -7,18 +7,20 @@ plugins {
     alias(libs.plugins.compose.compiler)
 }
 
-val pluginName = "GodotAndroidBle"
-
+val pluginName = "godotandroidble"
 val pluginPackageName = "com.duffrecords.godotandroidble"
+val pluginClassName = "GodotAndroidBle"
 
 android {
     namespace = pluginPackageName
     compileSdk = 36
 
     defaultConfig {
+        manifestPlaceholders += mapOf()
         minSdk = 28
         manifestPlaceholders["godotPluginName"] = pluginName
         manifestPlaceholders["godotPluginPackageName"] = pluginPackageName
+        manifestPlaceholders["godotPluginClassName"] = pluginClassName
         buildConfigField("String", "GODOT_PLUGIN_NAME", "\"${pluginName}\"")
         setProperty("archivesBaseName", pluginName)
 
@@ -26,6 +28,7 @@ android {
         vectorDrawables {
             useSupportLibrary = true
         }
+        targetSdk = 32
     }
 
     buildTypes {

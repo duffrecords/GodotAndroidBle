@@ -10,7 +10,6 @@ val pluginPackageName = "com.welie.btserver"
 
 android {
     compileSdk = 36
-
     defaultConfig {
         applicationId = pluginPackageName
         minSdk = 28

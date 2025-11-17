@@ -53,8 +53,8 @@ jobs:
         run: |
           mkdir -p godot-lib
           filename="godot-lib.${{ matrix.godot }}.stable.template_release.aar"
-          echo "configurations.maybeCreate(\"default\")" > godot-lib/build.gradle
-          echo "artifacts.add(\"default\", file('$filename'))" >> godot-lib/build.gradle
+          echo "configurations.maybeCreate(\"default\")" > godot-lib/build.gradle.kts
+          echo "artifacts.add(\"default\", file('$filename'))" >> godot-lib/build.gradle.kts
           url="https://github.com/godotengine/godot/releases/download/${{ matrix.godot }}-stable/${filename}"
           curl -L -o "godot-lib/${filename}" "$url"
 
