@@ -52,6 +52,7 @@ android {
 
 dependencies {
     implementation(libs.timber)
+    // implementation("com.jakewharton.timber:timber:5.0.1")
     testImplementation(libs.junit)
     testImplementation(libs.mockk)
     testImplementation(libs.robolectric)

@@ -62,6 +62,7 @@ android {
 
 dependencies {
     implementation(libs.timber)
+    // implementation("com.jakewharton.timber:timber:5.0.1")
     implementation(libs.core.ktx)
     implementation(libs.androidx.lifecycle.runtime.ktx)
     implementation(libs.androidx.activity.compose)

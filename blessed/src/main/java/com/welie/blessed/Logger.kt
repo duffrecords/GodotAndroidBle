@@ -1,7 +1,7 @@
 package com.welie.blessed
 
 import android.util.Log
-import timber.log.Timber
+// import timber.log.Timber
 
 @Suppress("unused")
 internal object Logger {
@@ -110,7 +110,16 @@ internal object Logger {
 
     private fun triggerLogger(priority: Int, tag: String, msg: String) {
         if (enabled) {
-            Timber.tag(tag).log(priority, msg)
+            // Timber.tag(tag).log(priority, msg)
+            when (priority) {
+                Log.VERBOSE -> Log.v(tag, msg)
+                Log.DEBUG   -> Log.d(tag, msg)
+                Log.INFO    -> Log.i(tag, msg)
+                Log.WARN    -> Log.w(tag, msg)
+                Log.ERROR   -> Log.e(tag, msg)
+                Log.ASSERT  -> Log.wtf(tag, msg)
+                else -> Log.d(tag, msg)
+            }
         }
     }
 }
