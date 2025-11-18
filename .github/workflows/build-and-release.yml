@@ -92,11 +92,11 @@ jobs:
 
             # Stage files for zipping with the exact layout requested
             STAGE_DIR="build/package-godot-${GODOT_VERSION}"
-            mkdir -p "${STAGE_DIR}/bin/debug" "${STAGE_DIR}/bin/release"
+            mkdir -p "${STAGE_DIR}/godotandroidble/bin/debug" "${STAGE_DIR}/godotandroidble/bin/release"
 
             # Copy export plugin files
-            cp export_scripts/export_plugin.gd "${STAGE_DIR}/export_plugin.gd"
-            cp export_scripts/plugin.cfg       "${STAGE_DIR}/plugin.cfg"
+            cp export_scripts/export_plugin.gd "${STAGE_DIR}/godotandroidble/export_plugin.gd"
+            cp export_scripts/plugin.cfg       "${STAGE_DIR}/godotandroidble/plugin.cfg"
 
             # Locate and copy/rename AARs to canonical names (no version in filename)
             # app (godotandroidble)
@@ -106,8 +106,8 @@ jobs:
               echo "::error::Could not find app AAR outputs."
               exit 1
             fi
-            cp "${APP_DEBUG_SRC}"   "${STAGE_DIR}/bin/debug/godotandroidble-debug.aar"
-            cp "${APP_RELEASE_SRC}" "${STAGE_DIR}/bin/release/godotandroidble-release.aar"
+            cp "${APP_DEBUG_SRC}"   "${STAGE_DIR}/godotandroidble/bin/debug/godotandroidble-debug.aar"
+            cp "${APP_RELEASE_SRC}" "${STAGE_DIR}/godotandroidble/bin/release/godotandroidble-release.aar"
 
             # blessed
             BLESSED_DEBUG_SRC="$(ls blessed/build/outputs/aar/*debug*.aar | head -n1)"
@@ -116,15 +116,17 @@ jobs:
               echo "::error::Could not find blessed AAR outputs."
               exit 1
             fi
-            cp "${BLESSED_DEBUG_SRC}"   "${STAGE_DIR}/bin/debug/blessed-debug.aar"
-            cp "${BLESSED_RELEASE_SRC}" "${STAGE_DIR}/bin/release/blessed-release.aar"
+            cp "${BLESSED_DEBUG_SRC}"   "${STAGE_DIR}/godotandroidble/bin/debug/blessed-debug.aar"
+            cp "${BLESSED_RELEASE_SRC}" "${STAGE_DIR}/godotandroidble/bin/release/blessed-release.aar"
 
             # Create the versioned zip (zip name reflects the Godot version)
             ZIP_NAME="godotandroidble-godot-${GODOT_VERSION}.zip"
             ( cd "${STAGE_DIR}" && zip -r "../${ZIP_NAME}" \
-              export_plugin.gd plugin.cfg \
-              bin/debug/godotandroidble-debug.aar bin/debug/blessed-debug.aar \
-              bin/release/godotandroidble-release.aar bin/release/blessed-release.aar \
+              godotandroidble/export_plugin.gd godotandroidble/plugin.cfg \
+              godotandroidble/bin/debug/godotandroidble-debug.aar \
+              godotandroidble/bin/debug/blessed-debug.aar \
+              godotandroidble/bin/release/godotandroidble-release.aar \
+              godotandroidble/bin/release/blessed-release.aar \
             )
             mv "build/${ZIP_NAME}" "${ART_DIR}/${ZIP_NAME}"
 
@@ -143,6 +145,7 @@ jobs:
       - name: Create GitHub Release and upload assets
         uses: softprops/action-gh-release@v2
         with:
+          body_path: RELEASE_NOTES.md
           tag_name: ${{ steps.tagmeta.outputs.tag_name }}
           name: ${{ steps.tagmeta.outputs.release_name }}
           draft: false
