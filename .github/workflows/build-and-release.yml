@@ -72,10 +72,8 @@ jobs:
             GODOT_AAR_URL="https://github.com/godotengine/godot/releases/download/${GODOT_VERSION}-stable/${GODOT_STEM}"
 
             # Write build.gradle.kts expected by the project to expose the artifact
-            cat > "${GODOT_LIB_DIR}/build.gradle.kts" <<'EOF'
-configurations.maybeCreate("default")
-artifacts.add("default", file("REPLACE_ME"))
-EOF
+            echo 'configurations.maybeCreate("default")' > "${GODOT_LIB_DIR}/build.gradle.kts"'
+            echo 'artifacts.add("default", file("REPLACE_ME"))' >> "${GODOT_LIB_DIR}/build.gradle.kts"
             # Patch in the actual file name
             sed -i "s#REPLACE_ME#${GODOT_STEM}#g" "${GODOT_LIB_DIR}/build.gradle.kts"
 
