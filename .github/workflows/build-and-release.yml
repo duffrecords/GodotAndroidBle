@@ -1,22 +1,155 @@
-name: Build and Release Android Plugin
+name: Build & Release Android BLE plugin (Godot/Kotlin matrix)
 
 on:
   push:
     tags:
-      - 'v*.*.*'
       - 'v*.*'
+      - 'v*.*.*'
+
+permissions:
+  contents: write
 
 jobs:
-  matrix-setup:
-    uses: ./.github/workflows/matrix-setup.yml
+  build-and-release:
+    name: Build & release for tag
+    runs-on: ubuntu-latest
 
-  build:
-    uses: ./.github/workflows/build-reusable.yml
-    with:
-      use_matrix: true
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
 
-  release:
-    uses: ./.github/workflows/release-reusable.yml
-    needs: [build, matrix-setup]
-    with:
-      use_matrix: true
+      - name: Set up JDK 17
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: Ensure tools present
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y jq zip curl
+
+      - name: Derive tag and release info
+        id: tagmeta
+        run: |
+          TAG_REF="${GITHUB_REF##*/}"
+          echo "tag_name=${TAG_REF}" >> "$GITHUB_OUTPUT"
+          echo "release_name=Release ${TAG_REF}" >> "$GITHUB_OUTPUT"
+
+      - name: Build for all Godot/Kotlin versions from .github/versions.json
+        id: buildloop
+        env:
+          GRADLE_USER_HOME: ${{ github.workspace }}/.gradle
+        run: |
+          set -euo pipefail
+
+          # Where we’ll collect finished zip artifacts
+          ART_DIR="${PWD}/artifacts"
+          mkdir -p "${ART_DIR}"
+
+          # Read versions array
+          VERS_FILE=".github/versions.json"
+          if [[ ! -f "${VERS_FILE}" ]]; then
+            echo "::error file=${VERS_FILE},title=versions.json missing::Expected ${VERS_FILE} in the repo."
+            exit 1
+          fi
+
+          # Iterate entries
+          jq -c '.versions[]' "${VERS_FILE}" | while read -r row; do
+            GODOT_VERSION="$(jq -r '.godot' <<<"${row}")"
+            KOTLIN_VERSION="$(jq -r '.kotlin' <<<"${row}")"
+
+            echo "=== Building for Godot ${GODOT_VERSION}, Kotlin ${KOTLIN_VERSION} ==="
+
+            # Prepare local "godot-lib" module with the exact AAR name
+            GODOT_LIB_DIR="godot-lib"
+            mkdir -p "${GODOT_LIB_DIR}"
+
+            GODOT_STEM="godot-lib.${GODOT_VERSION}.stable.template_release.aar"
+            GODOT_AAR_URL="https://github.com/godotengine/godot/releases/download/${GODOT_VERSION}-stable/${GODOT_STEM}"
+
+            # Write build.gradle.kts expected by the project to expose the artifact
+            cat > "${GODOT_LIB_DIR}/build.gradle.kts" <<'EOF'
+configurations.maybeCreate("default")
+artifacts.add("default", file("REPLACE_ME"))
+EOF
+            # Patch in the actual file name
+            sed -i "s#REPLACE_ME#${GODOT_STEM}#g" "${GODOT_LIB_DIR}/build.gradle.kts"
+
+            echo "Downloading Godot Android AAR: ${GODOT_AAR_URL}"
+            curl -fL "${GODOT_AAR_URL}" -o "${GODOT_LIB_DIR}/${GODOT_STEM}"
+
+            # Clean previous build outputs to avoid cross-version contamination
+            ./gradlew --no-daemon clean
+
+            # Build both modules, both variants.
+            # Pass Kotlin version as a project property in case your build uses it.
+            ./gradlew --no-daemon \
+              -PkotlinVersion="${KOTLIN_VERSION}" \
+              :app:assembleDebug :app:assembleRelease \
+              :blessed:assembleDebug :blessed:assembleRelease
+
+            # Stage files for zipping with the exact layout requested
+            STAGE_DIR="build/package-godot-${GODOT_VERSION}"
+            mkdir -p "${STAGE_DIR}/bin/debug" "${STAGE_DIR}/bin/release"
+
+            # Copy export plugin files
+            cp export_scripts/export_plugin.gd "${STAGE_DIR}/export_plugin.gd"
+            cp export_scripts/plugin.cfg       "${STAGE_DIR}/plugin.cfg"
+
+            # Locate and copy/rename AARs to canonical names (no version in filename)
+            # app (godotandroidble)
+            APP_DEBUG_SRC="$(ls app/build/outputs/aar/*debug*.aar | head -n1)"
+            APP_RELEASE_SRC="$(ls app/build/outputs/aar/*release*.aar | head -n1)"
+            if [[ -z "${APP_DEBUG_SRC}" || -z "${APP_RELEASE_SRC}" ]]; then
+              echo "::error::Could not find app AAR outputs."
+              exit 1
+            fi
+            cp "${APP_DEBUG_SRC}"   "${STAGE_DIR}/bin/debug/godotandroidble-debug.aar"
+            cp "${APP_RELEASE_SRC}" "${STAGE_DIR}/bin/release/godotandroidble-release.aar"
+
+            # blessed
+            BLESSED_DEBUG_SRC="$(ls blessed/build/outputs/aar/*debug*.aar | head -n1)"
+            BLESSED_RELEASE_SRC="$(ls blessed/build/outputs/aar/*release*.aar | head -n1)"
+            if [[ -z "${BLESSED_DEBUG_SRC}" || -z "${BLESSED_RELEASE_SRC}" ]]; then
+              echo "::error::Could not find blessed AAR outputs."
+              exit 1
+            fi
+            cp "${BLESSED_DEBUG_SRC}"   "${STAGE_DIR}/bin/debug/blessed-debug.aar"
+            cp "${BLESSED_RELEASE_SRC}" "${STAGE_DIR}/bin/release/blessed-release.aar"
+
+            # Create the versioned zip (zip name reflects the Godot version)
+            ZIP_NAME="godotandroidble-godot-${GODOT_VERSION}.zip"
+            ( cd "${STAGE_DIR}" && zip -r "../${ZIP_NAME}" \
+              export_plugin.gd plugin.cfg \
+              bin/debug/godotandroidble-debug.aar bin/debug/blessed-debug.aar \
+              bin/release/godotandroidble-release.aar bin/release/blessed-release.aar \
+            )
+            mv "build/${ZIP_NAME}" "${ART_DIR}/${ZIP_NAME}"
+
+            echo "Built artifact: ${ART_DIR}/${ZIP_NAME}"
+          done
+
+          # Expose artifact directory path
+          echo "artifacts_dir=${ART_DIR}" >> "$GITHUB_OUTPUT"
+
+      - name: Upload ZIPs as workflow artifacts (for debugging)
+        uses: actions/upload-artifact@v4
+        with:
+          name: zips
+          path: ${{ steps.buildloop.outputs.artifacts_dir }}/*.zip
+
+      - name: Create GitHub Release and upload assets
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.tagmeta.outputs.tag_name }}
+          name: ${{ steps.tagmeta.outputs.release_name }}
+          draft: false
+          prerelease: false
+          files: |
+            ${{ steps.buildloop.outputs.artifacts_dir }}/*.zip
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
