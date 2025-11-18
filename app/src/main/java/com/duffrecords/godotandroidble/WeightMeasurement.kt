@@ -27,13 +27,14 @@ data class WeightMeasurement(
     }
 
     fun toDictionary(): Dictionary {
+        val dateFormat: DateFormat = SimpleDateFormat("dd-MM-yyyy HH:mm:ss", Locale.ENGLISH)
         val dict = Dictionary()
-        dict["weight"] = weight
+        dict["weight"] = weight.toFloat()
         dict["unit"] = unit.ordinal
-        dict["timestamp"] = timestamp ?: createdAt
-        dict["user_id"] = userID
-        dict["bmi"] = bmi
-        dict["height_in_meters_or_inches"] = heightInMetersOrInches
+        dict["timestamp"] = dateFormat.format(timestamp ?: createdAt)
+        dict["user_id"] = userID?.toInt()
+        dict["bmi"] = bmi?.toFloat()
+        dict["height_in_meters_or_inches"] = heightInMetersOrInches?.toFloat()
         return dict
     }
 

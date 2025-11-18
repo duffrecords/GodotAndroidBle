@@ -22,10 +22,11 @@ data class TemperatureMeasurement(
     }
 
     fun toDictionary(): Dictionary {
+        val dateFormat: DateFormat = SimpleDateFormat("dd-MM-yyyy HH:mm:ss", Locale.ENGLISH)
         val dict = Dictionary()
-        dict["temperature_value"] = temperatureValue
+        dict["temperature_value"] = temperatureValue.toFloat()
         dict["unit"] = unit.ordinal
-        dict["timestamp"] = timestamp ?: createdAt
+        dict["timestamp"] = dateFormat.format(timestamp ?: createdAt)
         dict["type"] = type.ordinal
         return dict
     }

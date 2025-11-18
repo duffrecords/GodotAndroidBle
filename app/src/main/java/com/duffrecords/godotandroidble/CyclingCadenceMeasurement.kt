@@ -16,10 +16,10 @@ data class CyclingCadenceMeasurement(
 
     fun toDictionary(): Dictionary {
         val dict = Dictionary()
-        dict["cumulative_wheel_revs"] = cumulativeWheelRevs
-        dict["last_wheel_event_time"] = lastWheelEventTime
-        dict["cumulative_crank_revs"] = cumulativeCrankRevs
-        dict["last_crank_event_time"] = lastCrankEventTime
+        dict["cumulative_wheel_revs"] = cumulativeWheelRevs?.toInt()
+        dict["last_wheel_event_time"] = lastWheelEventTime?.toInt()
+        dict["cumulative_crank_revs"] = cumulativeCrankRevs?.toInt()
+        dict["last_crank_event_time"] = lastCrankEventTime?.toInt()
         return dict
     }
 
@@ -30,7 +30,7 @@ data class CyclingCadenceMeasurement(
             try {
                 val flags = parser.getUInt8()
                 val wheelRevDataPresent = flags and 0x01u > 0u
-                val crankRevDataPresent = flags and 0x10u > 0u
+                val crankRevDataPresent = flags and 0x02u > 0u
                 val cumulativeWheelRevs = if (wheelRevDataPresent) parser.getUInt32() else null
                 val lastWheelEventTime = if (wheelRevDataPresent) parser.getUInt16() else null
                 val cumulativeCrankRevs = if (crankRevDataPresent) parser.getUInt16() else null

@@ -16,10 +16,10 @@ data class RunningCadenceMeasurement(
 
     fun toDictionary(): Dictionary {
         val dict = Dictionary()
-        dict["instantaneous_speed"] = instantaneousSpeed
-        dict["instantaneous_cadence"] = instantaneousCadence
-        dict["instantaneous_stride_length"] = instantaneousStrideLength
-        dict["total_distance"] = totalDistance
+        dict["instantaneous_speed"] = instantaneousSpeed.toInt()
+        dict["instantaneous_cadence"] = instantaneousCadence.toInt()
+        dict["instantaneous_stride_length"] = instantaneousStrideLength?.toInt()
+        dict["total_distance"] = totalDistance?.toInt()
         return dict
     }
 

@@ -173,7 +173,7 @@ class GodotAndroidBle(godot: Godot): GodotPlugin(godot) {
                 }
 
                 BATTERY_LEVEL_CHARACTERISTIC_UUID -> {
-                    emitSignal(SIGNAL_BATTERY_LEVEL_RECEIVED, value.getUInt8().toUInt())
+                    emitSignal(SIGNAL_BATTERY_LEVEL_RECEIVED, value.getUInt8().toInt())
                 }
 
                 CURRENT_TIME_CHARACTERISTIC_UUID -> {

@@ -25,10 +25,11 @@ data class GlucoseMeasurement(
     }
 
     fun toDictionary(): Dictionary {
+        val dateFormat: DateFormat = SimpleDateFormat("dd-MM-yyyy HH:mm:ss", Locale.ENGLISH)
         val dict = Dictionary()
-        dict["value"] = value
+        dict["value"] = value?.toFloat()
         dict["unit"] = unit.ordinal
-        dict["timestamp"] = timestamp ?: createdAt
+        dict["timestamp"] = dateFormat.format(timestamp ?: createdAt)
         dict["sequence_number"] = sequenceNumber
         dict["context_will_follow"] = contextWillFollow
         return dict

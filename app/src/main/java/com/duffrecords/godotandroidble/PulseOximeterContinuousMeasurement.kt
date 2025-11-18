@@ -5,6 +5,9 @@ import java.nio.ByteOrder.LITTLE_ENDIAN
 import java.util.Calendar
 import java.util.Date
 import org.godotengine.godot.Dictionary
+import java.text.DateFormat
+import java.text.SimpleDateFormat
+import java.util.Locale
 
 data class PulseOximeterContinuousMeasurement(
     val spO2: Double,
@@ -23,17 +26,18 @@ data class PulseOximeterContinuousMeasurement(
     }
 
     fun toDictionary(): Dictionary {
+        val dateFormat: DateFormat = SimpleDateFormat("dd-MM-yyyy HH:mm:ss", Locale.ENGLISH)
         val dict = Dictionary()
-        dict["spO2"] = spO2
-        dict["pulse_rate"] = pulseRate
-        dict["spO2_fast"] = spO2Fast
-        dict["pulse_rate_fast"] = pulseRateFast
-        dict["spO2_slow"] = spO2Slow
-        dict["pulse_rate_slow"] = pulseRateSlow
-        dict["measurement_status"] = measurementStatus
-        dict["sensor_status"] = sensorStatus
-        dict["pulse_amplitude_index"] = pulseAmplitudeIndex
-        dict["created_at"] = createdAt
+        dict["spO2"] = spO2.toFloat()
+        dict["pulse_rate"] = pulseRate.toFloat()
+        dict["spO2_fast"] = spO2Fast?.toFloat()
+        dict["pulse_rate_fast"] = pulseRateFast?.toFloat()
+        dict["spO2_slow"] = spO2Slow?.toFloat()
+        dict["pulse_rate_slow"] = pulseRateSlow?.toFloat()
+        dict["measurement_status"] = measurementStatus?.toInt()
+        dict["sensor_status"] = sensorStatus?.toInt()
+        dict["pulse_amplitude_index"] = pulseAmplitudeIndex?.toFloat()
+        dict["created_at"] = dateFormat.format(createdAt)
         return dict
     }
 

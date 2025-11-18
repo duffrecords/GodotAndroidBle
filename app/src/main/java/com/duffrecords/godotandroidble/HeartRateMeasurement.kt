@@ -5,6 +5,9 @@ import java.nio.ByteOrder
 import java.util.Calendar
 import java.util.Date
 import org.godotengine.godot.Dictionary
+import java.text.DateFormat
+import java.text.SimpleDateFormat
+import java.util.Locale
 
 data class HeartRateMeasurement(
     val pulse: UShort,
@@ -18,12 +21,13 @@ data class HeartRateMeasurement(
     }
 
     fun toDictionary(): Dictionary {
+        val dateFormat: DateFormat = SimpleDateFormat("dd-MM-yyyy HH:mm:ss", Locale.ENGLISH)
         val dict = Dictionary()
-        dict["pulse"] = pulse
-        dict["energy_expended"] = energyExpended
+        dict["pulse"] = pulse.toInt()
+        dict["energy_expended"] = energyExpended?.toInt()
         dict["rr_intervals"] = rrIntervals
         dict["sensor_contact_status"] = sensorContactStatus.ordinal
-        dict["created_at"] = createdAt
+        dict["created_at"] = dateFormat.format(createdAt)
         return dict
     }
 

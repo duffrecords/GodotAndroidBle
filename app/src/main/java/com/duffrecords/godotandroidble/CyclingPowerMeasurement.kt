@@ -19,13 +19,13 @@ data class CyclingPowerMeasurement(
 
     fun toDictionary(): Dictionary {
         val dict = Dictionary()
-        dict["instantaneous_power"] = instantaneousPower
-        dict["pedal_power_balance"] = pedalPowerBalance
-        dict["accumulated_torque"] = accumulatedTorque
-        dict["cumulative_wheel_revs"] = cumulativeWheelRevs
-        dict["last_wheel_event_time"] = lastWheelEventTime
-        dict["cumulative_crank_revs"] = cumulativeCrankRevs
-        dict["last_crank_event_time"] = lastCrankEventTime
+        dict["instantaneous_power"] = instantaneousPower.toInt()
+        dict["pedal_power_balance"] = pedalPowerBalance?.toInt()
+        dict["accumulated_torque"] = accumulatedTorque?.toInt()
+        dict["cumulative_wheel_revs"] = cumulativeWheelRevs?.toInt()
+        dict["last_wheel_event_time"] = lastWheelEventTime?.toInt()
+        dict["cumulative_crank_revs"] = cumulativeCrankRevs?.toInt()
+        dict["last_crank_event_time"] = lastCrankEventTime?.toInt()
         return dict
     }
 

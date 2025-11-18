@@ -25,15 +25,15 @@ data class PulseOximeterSpotMeasurement(
     }
 
     fun toDictionary(): Dictionary {
+        val dateFormat: DateFormat = SimpleDateFormat("dd-MM-yyyy HH:mm:ss", Locale.ENGLISH)
         val dict = Dictionary()
-        dict["spO2"] = spO2
-        dict["pulse_rate"] = pulseRate
-        dict["pulse_amplitude_index"] = pulseAmplitudeIndex
-        dict["timestamp"] = timestamp ?: createdAt
+        dict["spO2"] = spO2.toFloat()
+        dict["pulse_rate"] = pulseRate.toFloat()
+        dict["pulse_amplitude_index"] = pulseAmplitudeIndex?.toFloat()
+        dict["timestamp"] = dateFormat.format(timestamp ?: createdAt)
         dict["is_device_clock_set"] = isDeviceClockSet
-        dict["measurement_status"] = measurementStatus
-        dict["sensor_status"] = sensorStatus
-        dict["created_at"] = createdAt
+        dict["measurement_status"] = measurementStatus?.toInt()
+        dict["sensor_status"] = sensorStatus?.toInt()
         return dict
     }
 

@@ -28,14 +28,15 @@ data class BloodPressureMeasurement(
     }
 
     fun toDictionary(): Dictionary {
+        val dateFormat: DateFormat = SimpleDateFormat("dd-MM-yyyy HH:mm:ss", Locale.ENGLISH)
         val dict = Dictionary()
-        dict["systolic"] = systolic
-        dict["diastolic"] = diastolic
-        dict["mean_arterial_pressure"] = meanArterialPressure
+        dict["systolic"] = systolic.toFloat()
+        dict["diastolic"] = diastolic.toFloat()
+        dict["mean_arterial_pressure"] = meanArterialPressure.toFloat()
         dict["unit"] = unit.ordinal
-        dict["timestamp"] = timestamp ?: createdAt
-        dict["pulse_rate"] = pulseRate
-        dict["user_id"] = userID
+        dict["timestamp"] = dateFormat.format(timestamp ?: createdAt)
+        dict["pulse_rate"] = pulseRate?.toFloat()
+        dict["user_id"] = userID?.toInt()
         if (measurementStatus != null) {
             val status = Dictionary()
             status["body_movement_detected"] = measurementStatus.isBodyMovementDetected
