@@ -25,9 +25,15 @@ class AndroidExportPlugin extends EditorExportPlugin:
 	# Return the paths of the plugin's AAR binaries relative to the 'addons' directory.
 	func _get_android_libraries(platform, debug):
 		if debug:
-			return PackedStringArray([_plugin_name + "/bin/debug/" + _plugin_name + "-debug.aar"])
+			return PackedStringArray([
+				_plugin_name + "/bin/debug/" + _plugin_name + "-debug.aar",
+				_plugin_name + "/bin/debug/blessed-debug.aar"
+			])
 		else:
-			return PackedStringArray([_plugin_name + "/bin/release/" + _plugin_name + "-release.aar"])
+			return PackedStringArray([
+				_plugin_name + "/bin/release/" + _plugin_name + "-release.aar",
+				_plugin_name + "/bin/debug/blessed-release.aar"
+			])
 
 	func _get_name():
 		return _plugin_name
