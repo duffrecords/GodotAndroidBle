@@ -173,7 +173,8 @@ class GodotAndroidBle(godot: Godot): GodotPlugin(godot) {
                 }
 
                 BATTERY_LEVEL_CHARACTERISTIC_UUID -> {
-                    emitSignal(SIGNAL_BATTERY_LEVEL_RECEIVED, value.getUInt8().toInt())
+                    val level: Int = value[0].toInt() and 0xFF
+                    emitSignal(SIGNAL_BATTERY_LEVEL_RECEIVED, level)
                 }
 
                 CURRENT_TIME_CHARACTERISTIC_UUID -> {
@@ -393,14 +394,14 @@ class GodotAndroidBle(godot: Godot): GodotPlugin(godot) {
         return mutableSetOf(
             SignalInfo(SIGNAL_PLUGIN_MESSAGE, String::class.java),
             SignalInfo(SIGNAL_PERMISSION_REQUIRED, String::class.java),
-            SignalInfo(SIGNAL_BLUETOOTH_STATE_CHANGED, Int::class.java),
+            SignalInfo(SIGNAL_BLUETOOTH_STATE_CHANGED, Int::class.javaObjectType),
             SignalInfo(SIGNAL_BLUETOOTH_DEVICE_CONNECTED, String::class.java, String::class.java),
             SignalInfo(SIGNAL_BLUETOOTH_DEVICE_CONNECTION_FAILED, String::class.java, String::class.java, String::class.java),
             SignalInfo(SIGNAL_BLUETOOTH_DEVICE_DISCONNECTED, String::class.java, String::class.java, String::class.java),
             SignalInfo(SIGNAL_BLUETOOTH_DEVICE_FOUND, Dictionary::class.java),
             SignalInfo(SIGNAL_NOTIFICATION_STATE_UPDATE_FAILED, String::class.java, String::class.java),
             SignalInfo(SIGNAL_CURRENT_TIME_RECEIVED, String::class.java),
-            SignalInfo(SIGNAL_BATTERY_LEVEL_RECEIVED, Int::class.java),
+            SignalInfo(SIGNAL_BATTERY_LEVEL_RECEIVED, Int::class.javaObjectType),
             SignalInfo(SIGNAL_MANUFACTURER_NAME_RECEIVED, String::class.java),
             SignalInfo(SIGNAL_MODEL_NUMBER_RECEIVED, String::class.java),
             SignalInfo(SIGNAL_BLOOD_PRESSURE_MEASUREMENT_RECEIVED, Dictionary::class.java),

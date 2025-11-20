@@ -1,2 +1,2 @@
 Changes in this Release
-- BUGFIX: add missing Blessed library dependency to export script
+- BUGFIX: fix type of battery level signal argument
