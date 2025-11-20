@@ -32,35 +32,32 @@ Then run the installation script to copy the plugin to your project:
 ```
 
 ## Usage
-Enable the plugin in your project settings and copy the `bluetooth_manager.gd` script to your project. Now you can access the plugin via GDScript like this:
+Copy the `ble_permissions_manager.gd` autoload script to your project. In your project settings Plugin tab, enable the `godotandroidble` plugin. In the `Globals` tab, add the path to the `ble_permissions_manager.gd` script and make sure the node name is something other than `BlePermissionsManager` and then click the Add button. Here is a basic example of how to use the plugin in GDScript:
 ```python
-@onready var bluetooth_manager = BluetoothManager.new()
-
 var _plugin_singleton: JNISingleton
 var _plugin_name: String = "godotandroidble"
-var bt_permissions_granted = false
 
 func _ready() -> void:
 	if Engine.has_singleton(_plugin_name):
 		_plugin_singleton = Engine.get_singleton(_plugin_name)
 		_plugin_singleton.initPlugin()
+        BlePermissionsManager.permissions_done.connect(_on_permissions_done)
     	_plugin_singleton.connect("plugin_message", _on_plugin_message_received)
-    	_plugin_singleton.connect("permission_required", _on_permission_required)
     	_plugin_singleton.connect("bluetooth_device_found", _on_device_found)
     	_plugin_singleton.connect("bluetooth_device_connected", _on_device_connected)
     	_plugin_singleton.connect("bluetooth_device_disconnected", _on_device_disconnected)
 		print("checking Bluetooth permissions")
-		bt_permissions_granted = bluetooth_manager.has_permissions(_plugin_singleton)
+		BlePermissionsManager.ensure_permissions()
 		print("Bluetooth permissions are set: " + str(bt_permissions_granted))
 	elif OS.has_feature("template"):
 		printerr(_plugin_name, " singleton not found!")
+
+func _on_permissions_done(all_ok: bool, results: Dictionary) -> void:
+	print("all permissions granted: " + str(all_ok))
+	print(results)
 ```
 
-The BluetoothManager object can request `android.permission.BLUETOOTH_SCAN` and `android.permission.BLUETOOTH_CONNECT` at runtime (these are required in Android API 31 and higher) and this will create a popup in the UI to prompt the user to accept. It should send a `on_request_permissions_result` signal once this is complete but this doesn't seem to be working yet. One workaround is to create a button in your UI that connects to a function that checks and requests these permissions
-```python
-bt_permissions_granted = bluetooth_manager.has_permissions(_plugin_singleton)
-```
-and then make the button invisible once `bt_permissions_granted` is true.
+The BlePermissionsManager autoload singleton will request `android.permission.BLUETOOTH_SCAN` and `android.permission.BLUETOOTH_CONNECT` at runtime (these are required in Android API 31 and higher) and this will create a dialog box in the UI to prompt the user to accept. Once the user grants permission, the plugin sends a `on_request_permissions_result` signal. You can design your UI to leave Bluetooth-related UI elements disabled until this signal is received.
 
 Once you have permissions sorted out, you can scan for one of these BLE service types:
 ```python
@@ -102,3 +99,10 @@ Each device type is different and not all fields are required, so you'll have to
     "last_crank_event_time": int   # free-running count of 1/1024 second units since the last event
 }
 ```
+
+The BLE device may also return additional data about itself. You can catch these signals if you like:
+
+* current_time_received (string)
+* battery_level_received (int)
+* manufacturer_name_received (string)
+* model_number_received (string)
