@@ -400,7 +400,7 @@ class GodotAndroidBle(godot: Godot): GodotPlugin(godot) {
             SignalInfo(SIGNAL_BLUETOOTH_DEVICE_FOUND, Dictionary::class.java),
             SignalInfo(SIGNAL_NOTIFICATION_STATE_UPDATE_FAILED, String::class.java, String::class.java),
             SignalInfo(SIGNAL_CURRENT_TIME_RECEIVED, String::class.java),
-            SignalInfo(SIGNAL_BATTERY_LEVEL_RECEIVED, UInt::class.java),
+            SignalInfo(SIGNAL_BATTERY_LEVEL_RECEIVED, Int::class.java),
             SignalInfo(SIGNAL_MANUFACTURER_NAME_RECEIVED, String::class.java),
             SignalInfo(SIGNAL_MODEL_NUMBER_RECEIVED, String::class.java),
             SignalInfo(SIGNAL_BLOOD_PRESSURE_MEASUREMENT_RECEIVED, Dictionary::class.java),
