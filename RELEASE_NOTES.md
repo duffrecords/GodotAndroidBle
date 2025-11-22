@@ -1,2 +1,2 @@
 Changes in this Release
-- BUGFIX: fix type of battery level signal argument
+- IMPROVEMENT: disconnect connection to on_request_permissions_result after all permissions are granted
