@@ -113,6 +113,8 @@ func _finish_if_done() -> void:
 	_in_flight = false
 	print("sending permissions_done signal")
 	call_deferred("_emit_done", all_ok, _results.duplicate())
+	# Disconnect signal since it is no longer needed
+	get_tree().on_request_permissions_result.disconnect(_on_request_permissions_result)
 
 func _emit_done(all_ok: bool, results: Dictionary) -> void:
 	emit_signal("permissions_done", all_ok, results)
