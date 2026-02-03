@@ -1,2 +1,2 @@
 Changes in this Release
-- IMPROVEMENT: disconnect connection to on_request_permissions_result after all permissions are granted
+- UPGRADE: Support Godot 4.6 and Kotlin 2.2.21

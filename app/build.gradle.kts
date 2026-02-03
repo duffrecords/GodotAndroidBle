@@ -1,4 +1,3 @@
-import com.android.build.gradle.internal.tasks.factory.dependsOn
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 
 plugins {
@@ -16,11 +15,12 @@ android {
     compileSdk = 36
 
     defaultConfig {
-        manifestPlaceholders += mapOf()
+        manifestPlaceholders += mapOf(
+            "godotPluginName" to pluginName,
+            "godotPluginPackageName" to pluginPackageName,
+            "godotPluginClassName" to pluginClassName
+        )
         minSdk = 28
-        manifestPlaceholders["godotPluginName"] = pluginName
-        manifestPlaceholders["godotPluginPackageName"] = pluginPackageName
-        manifestPlaceholders["godotPluginClassName"] = pluginClassName
         buildConfigField("String", "GODOT_PLUGIN_NAME", "\"${pluginName}\"")
         setProperty("archivesBaseName", pluginName)
 
@@ -28,7 +28,6 @@ android {
         vectorDrawables {
             useSupportLibrary = true
         }
-        targetSdk = 32
     }
 
     buildTypes {
@@ -73,7 +72,7 @@ dependencies {
     implementation(libs.androidx.material3)
     implementation(project(":blessed"))
     compileOnly(project(":godot-lib"))
-    //implementation("org.godotengine:godot:4.5.1.stable")
+    implementation("org.godotengine:godot:4.6.0.stable")
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)
