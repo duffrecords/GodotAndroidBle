@@ -12,7 +12,7 @@ val pluginClassName = "GodotAndroidBle"
 
 android {
     namespace = pluginPackageName
-    compileSdk = 36
+    compileSdk = 35
 
     defaultConfig {
         manifestPlaceholders += mapOf(
@@ -22,12 +22,15 @@ android {
         )
         minSdk = 28
         buildConfigField("String", "GODOT_PLUGIN_NAME", "\"${pluginName}\"")
-        setProperty("archivesBaseName", pluginName)
-
+        
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables {
             useSupportLibrary = true
         }
+    }
+
+    base {
+        archivesName.set(pluginName)
     }
 
     buildTypes {
