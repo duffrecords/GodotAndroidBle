@@ -1,6 +1,6 @@
 # Godot Android BLE
 
-A Godot plugin for communicating with Bluetooth Low Engergy devices on Android.
+A Godot plugin for communicating with Bluetooth Low Energy devices on Android.
 
 Since there is no cross-platform BLE plugin available for Godot, I thought I would take a shot at writing an Android one. There are a handful of cycling apps available for the Quest 2 but most of them require subscriptions and the one freemium one I tried was basically a VR video that plays back at a varying speed. I think there's room for improvement. 360 degree video on low-end VR hardware still doesn't look very impressive and moving along a fixed track feels very limiting. Why not make a 3D-rendered world where you can actually turn the handlebars and go wherever you want? Movement should be fairly simple to extrapolate by reading the revolutions from a simple BLE cadence sensor but I've yet to find a good example for this particular platform. Sometimes you have to do it yourself.
 
@@ -41,14 +41,13 @@ func _ready() -> void:
 	if Engine.has_singleton(_plugin_name):
 		_plugin_singleton = Engine.get_singleton(_plugin_name)
 		_plugin_singleton.initPlugin()
-        BlePermissionsManager.permissions_done.connect(_on_permissions_done)
-    	_plugin_singleton.connect("plugin_message", _on_plugin_message_received)
-    	_plugin_singleton.connect("bluetooth_device_found", _on_device_found)
-    	_plugin_singleton.connect("bluetooth_device_connected", _on_device_connected)
-    	_plugin_singleton.connect("bluetooth_device_disconnected", _on_device_disconnected)
+		BlePermissionsManager.permissions_done.connect(_on_permissions_done)
+		_plugin_singleton.connect("plugin_message", _on_plugin_message_received)
+		_plugin_singleton.connect("bluetooth_device_found", _on_device_found)
+		_plugin_singleton.connect("bluetooth_device_connected", _on_device_connected)
+		_plugin_singleton.connect("bluetooth_device_disconnected", _on_device_disconnected)
 		print("checking Bluetooth permissions")
 		BlePermissionsManager.ensure_permissions()
-		print("Bluetooth permissions are set: " + str(bt_permissions_granted))
 	elif OS.has_feature("template"):
 		printerr(_plugin_name, " singleton not found!")
 
@@ -57,10 +56,13 @@ func _on_permissions_done(all_ok: bool, results: Dictionary) -> void:
 	print(results)
 ```
 
-The BlePermissionsManager autoload singleton will request `android.permission.BLUETOOTH_SCAN` and `android.permission.BLUETOOTH_CONNECT` at runtime (these are required in Android API 31 and higher) and this will create a dialog box in the UI to prompt the user to accept. Once the user grants permission, the plugin sends a `on_request_permissions_result` signal. You can design your UI to leave Bluetooth-related UI elements disabled until this signal is received.
+The BlePermissionsManager autoload singleton will request `android.permission.BLUETOOTH_SCAN` and `android.permission.BLUETOOTH_CONNECT` at runtime (these are required in Android API 31 and higher) and this will create a dialog box in the UI to prompt the user to accept. Once the user grants permission, the plugin sends a `permissions_done` signal. You can design your UI to leave Bluetooth-related UI elements disabled until this signal is received.
+
+## Scanning
 
 Once you have permissions sorted out, you can scan for one of these BLE service types:
 ```python
+_plugin_singleton.startScanning()        # all supported service types
 _plugin_singleton.scanForBlpService()     # blood pressure measurement
 _plugin_singleton.scanForGlucoseService() # glucose measurement
 _plugin_singleton.scanForHrsService()     # heart rate measurement
@@ -70,7 +72,8 @@ _plugin_singleton.scanForCscService()     # cycling speed and cadence measuremen
 _plugin_singleton.scanForCpService()      # cycling power measurement
 _plugin_singleton.scanForRscService()     # running speed and cadence measurement
 ```
-The scan will time out eventually but only one type of scan can run at a time so run `_plugin_singleton().stopScanning()` before attempting another one. If a BLE device is found, a `bluetooth_device_found` signal will be sent and you can handle that in your script. This signal includes a dictionary with the following fields:
+
+Only one scan can run at a time; call `_plugin_singleton.stopScanning()` before starting a different one. Each time a device is discovered, a `bluetooth_device_found` signal is emitted — scanning continues until you stop it or call `connectToDevice()`. The signal payload is a dictionary:
 ```python
 {
     "name": string,    # device name
@@ -79,7 +82,35 @@ The scan will time out eventually but only one type of scan can run at a time so
 }
 ```
 
-The plugin will automatically attempt to connect to the discovered device and, if successful, send a `bluetooth_device_connected` signal, along with the name and MAC address of the device. It will request notifications from the device, which will send an associated signal containing a dictionary of measurement data. Here is a list of the measurement signals:
+You can use these signals to populate a device list in your UI and let the player choose which device to connect to.
+
+## Connecting
+
+Call `connectToDevice()` with the MAC address of the chosen device. This stops the scan automatically before initiating the connection.
+```python
+func _on_device_found(device: Dictionary) -> void:
+    # add device to a UI list; store device["address"] for later use
+
+func _on_connect_button_pressed() -> void:
+    _plugin_singleton.connectToDevice(selected_address)
+```
+
+If the connection succeeds, a `bluetooth_device_connected` signal is sent with the device name and MAC address. The plugin will then request notifications from the device, which triggers measurement signals as data arrives.
+
+If you know the MAC address of your device in advance, you can skip the selection step entirely by connecting directly:
+```python
+_plugin_singleton.connectToDevice("AA:BB:CC:DD:EE:FF")
+```
+
+You can also scan by address or name if you want to filter results before presenting them:
+```python
+_plugin_singleton.scanForAddress("AA:BB:CC:DD:EE:FF")
+_plugin_singleton.scanForName("MyDevice")
+```
+
+## Measurement signals
+
+Once connected, the plugin emits signals as measurement notifications arrive from the device:
 
 * blood_pressure_measurement_received
 * glucose_measurement_received
@@ -100,7 +131,7 @@ Each device type is different and not all fields are required, so you'll have to
 }
 ```
 
-The BLE device may also return additional data about itself. You can catch these signals if you like:
+The BLE device may also return additional data about itself:
 
 * current_time_received (string)
 * battery_level_received (int)
