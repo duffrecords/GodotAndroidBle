@@ -114,6 +114,11 @@ class GodotAndroidBle(godot: Godot): GodotPlugin(godot) {
     private val RSC_MEASUREMENT_CHARACTERISTIC_UUID = UUID.fromString("00002A53-0000-1000-8000-00805f9b34fb")
     // private static final UUID RSC_FEATURE_CHARACTERISTIC_UUID = UUID.fromString("00002A54-0000-1000-8000-00805f9b34fb");
 
+    // UUIDs for the Fitness Machine Service (FTMS)
+    private val FTMS_SERVICE_UUID: UUID = UUID.fromString("00001826-0000-1000-8000-00805f9b34fb")
+    private val FTMS_ROWER_DATA_CHAR_UUID: UUID = UUID.fromString("00002AD1-0000-1000-8000-00805f9b34fb")
+    private val FTMS_CONTROL_POINT_CHAR_UUID: UUID = UUID.fromString("00002AD9-0000-1000-8000-00805f9b34fb")
+
     private val bluetoothPeripheralCallback = object : BluetoothPeripheralCallback() {
         override fun onServicesDiscovered(peripheral: BluetoothPeripheral) {
             peripheral.requestConnectionPriority(ConnectionPriority.HIGH)
@@ -146,6 +151,8 @@ class GodotAndroidBle(godot: Godot): GodotPlugin(godot) {
             peripheral.startNotify(CSC_SERVICE_UUID, CSC_MEASUREMENT_CHARACTERISTIC_UUID)
             peripheral.startNotify(CP_SERVICE_UUID, CP_MEASUREMENT_CHARACTERISTIC_UUID)
             peripheral.startNotify(RSC_SERVICE_UUID, RSC_MEASUREMENT_CHARACTERISTIC_UUID)
+            peripheral.startNotify(FTMS_SERVICE_UUID, FTMS_ROWER_DATA_CHAR_UUID)
+            peripheral.startNotify(FTMS_SERVICE_UUID, FTMS_CONTROL_POINT_CHAR_UUID)
         }
 
         override fun onNotificationStateUpdate(peripheral: BluetoothPeripheral, characteristic: BluetoothGattCharacteristic, status: GattStatus) {
@@ -265,6 +272,13 @@ class GodotAndroidBle(godot: Godot): GodotPlugin(godot) {
                         measurement.toDictionary()
                     )
                 }
+                FTMS_ROWER_DATA_CHAR_UUID -> {
+                    val measurement = FtmsRowerData.parse(value) ?: return
+                    emitSignal(
+                        FTMS_ROWER_DATA_RECEIVED,
+                        measurement.toDictionary()
+                    )
+                }
             }
         }
 
@@ -375,7 +389,7 @@ class GodotAndroidBle(godot: Godot): GodotPlugin(godot) {
         const val SIGNAL_PULSE_OXIMETER_SPOT_MEASUREMENT_RECEIVED = "pulse_oximeter_spot_measurement_received"
         const val SIGNAL_TEMPERATURE_MEASUREMENT_RECEIVED = "temperature_measurement_received"
         const val SIGNAL_WEIGHT_MEASUREMENT_RECEIVED = "weight_measurement_received"
-
+        const val FTMS_ROWER_DATA_RECEIVED = "ftms_rower_data_received"
     }
 
     private val currentActivity: Activity = activity ?: throw IllegalStateException()
@@ -405,7 +419,8 @@ class GodotAndroidBle(godot: Godot): GodotPlugin(godot) {
             SignalInfo(SIGNAL_PULSE_OXIMETER_CONTINUOUS_MEASUREMENT_RECEIVED, Dictionary::class.java),
             SignalInfo(SIGNAL_PULSE_OXIMETER_SPOT_MEASUREMENT_RECEIVED, Dictionary::class.java),
             SignalInfo(SIGNAL_TEMPERATURE_MEASUREMENT_RECEIVED, Dictionary::class.java),
-            SignalInfo(SIGNAL_WEIGHT_MEASUREMENT_RECEIVED, Dictionary::class.java)
+            SignalInfo(SIGNAL_WEIGHT_MEASUREMENT_RECEIVED, Dictionary::class.java),
+            SignalInfo(FTMS_ROWER_DATA_RECEIVED, Dictionary::class.java)
         )
     }
 
@@ -475,7 +490,8 @@ class GodotAndroidBle(godot: Godot): GodotPlugin(godot) {
                     WSS_SERVICE_UUID,
                     CSC_SERVICE_UUID,
                     CP_SERVICE_UUID,
-                    RSC_SERVICE_UUID
+                    RSC_SERVICE_UUID,
+                    FTMS_SERVICE_UUID
                 )
             )
         }
