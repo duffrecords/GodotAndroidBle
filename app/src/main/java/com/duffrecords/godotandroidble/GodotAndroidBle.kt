@@ -305,14 +305,6 @@ class GodotAndroidBle(godot: Godot): GodotPlugin(godot) {
             emitSignal(
                 SIGNAL_BLUETOOTH_DEVICE_FOUND, dict
             )
-            centralManager.stopScan()
-
-            if (peripheral.needsBonding() && peripheral.bondState == BondState.NONE) {
-                // Create a bond immediately to avoid double pairing popups
-                centralManager.createBond(peripheral, bluetoothPeripheralCallback)
-            } else {
-                centralManager.connect(peripheral, bluetoothPeripheralCallback)
-            }
         }
 
         override fun onConnected(peripheral: BluetoothPeripheral) {
@@ -560,6 +552,19 @@ class GodotAndroidBle(godot: Godot): GodotPlugin(godot) {
     fun scanForName(name: String) {
         if(centralManager.isNotScanning)
             centralManager.scanForPeripheralsWithNames(setOf(name))
+    }
+
+    @UsedByGodot
+    fun connectToDevice(address: String) {
+        if (centralManager.isScanning) {
+            centralManager.stopScan()
+        }
+        val peripheral = centralManager.getPeripheral(address)
+        if (peripheral.needsBonding() && peripheral.bondState == BondState.NONE) {
+            centralManager.createBond(peripheral, bluetoothPeripheralCallback)
+        } else {
+            centralManager.connect(peripheral, bluetoothPeripheralCallback)
+        }
     }
 }
 
