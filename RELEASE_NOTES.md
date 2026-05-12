@@ -1,2 +1,2 @@
 Changes in this Release
-- UPGRADE: Support Godot 4.6.2 and Kotlin 2.2.21
+- BREAKING CHANGES: The scan functions no longer connect automatically to the first discovered device. Instead, a `bluetooth_device_found` signal is emitted with a dictionary containing the device's name, address, and RSSI. The developer can collect these results in a list and use the `connectToDevice(address)` function to connect to a specific device. The rest of the plugin works the same as before.
