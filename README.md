@@ -108,6 +108,15 @@ _plugin_singleton.scanForAddress("AA:BB:CC:DD:EE:FF")
 _plugin_singleton.scanForName("MyDevice")
 ```
 
+## Disconnecting
+
+To disconnect from a device, call `disconnectFromDevice()` with the device's MAC address:
+```python
+_plugin_singleton.disconnectFromDevice("AA:BB:CC:DD:EE:FF")
+```
+
+A `bluetooth_device_disconnected` signal is emitted when the connection is closed, with the device name, MAC address, and a status string. Disconnecting this way suppresses the automatic reconnection that would otherwise occur after an unexpected disconnect.
+
 ## Measurement signals
 
 Once connected, the plugin emits signals as measurement notifications arrive from the device:
