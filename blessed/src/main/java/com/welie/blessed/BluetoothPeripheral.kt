@@ -1089,12 +1089,12 @@ class BluetoothPeripheral internal constructor(
         }
     }
 
-    fun startNotify(serviceUUID: UUID, characteristicUUID: UUID) : Boolean {
-        return setNotify(serviceUUID, characteristicUUID, true)
+    fun startNotify(serviceUUID: UUID, characteristicUUID: UUID, ignoreCcdCheck: Boolean = false) : Boolean {
+        return setNotify(serviceUUID, characteristicUUID, true, ignoreCcdCheck)
     }
 
-    fun startNotify(characteristic: BluetoothGattCharacteristic) : Boolean {
-        return setNotify(characteristic, true)
+    fun startNotify(characteristic: BluetoothGattCharacteristic, ignoreCcdCheck: Boolean = false) : Boolean {
+        return setNotify(characteristic, true, ignoreCcdCheck)
     }
 
     fun stopNotify(serviceUUID: UUID, characteristicUUID: UUID) : Boolean {
@@ -1114,9 +1114,9 @@ class BluetoothPeripheral internal constructor(
      * @return true if the operation was enqueued, otherwise false
      * @throws IllegalArgumentException if the CCC descriptor was not found or the characteristic does not support notifications or indications
      */
-    private fun setNotify(serviceUUID: UUID, characteristicUUID: UUID, enable: Boolean): Boolean {
+    private fun setNotify(serviceUUID: UUID, characteristicUUID: UUID, enable: Boolean, ignoreCcdCheck: Boolean = false): Boolean {
         val characteristic = getCharacteristic(serviceUUID, characteristicUUID)
-        return characteristic?.let { setNotify(it, enable) } ?: false
+        return characteristic?.let { setNotify(it, enable, ignoreCcdCheck) } ?: false
     }
 
     /**
@@ -1130,10 +1130,18 @@ class BluetoothPeripheral internal constructor(
      * @return true if the operation was enqueued, otherwise false
      * @throws IllegalArgumentException if the CCC descriptor was not found or the characteristic does not support notifications or indications
      */
-    private fun setNotify(characteristic: BluetoothGattCharacteristic, enable: Boolean): Boolean {
+    private fun setNotify(characteristic: BluetoothGattCharacteristic, enable: Boolean, ignoreCcdCheck: Boolean = false): Boolean {
         // Get the Client Characteristic Configuration Descriptor for the characteristic
-        val descriptor = characteristic.getDescriptor(CCC_DESCRIPTOR_UUID)
-        if (descriptor == null) {
+        val descriptor = characteristic.getDescriptor(CCC_DESCRIPTOR_UUID) ?: if (ignoreCcdCheck) {
+            return enqueue {
+                // Try to set notification for Gatt object even if there is no CCC descriptor
+                if (bluetoothGatt?.setCharacteristicNotification(characteristic, enable) == false) {
+                    Logger.e(TAG, "setCharacteristicNotification failed for characteristic: %s", characteristic.uuid)
+                    completedCommand()
+                    return@enqueue
+                }
+            }
+        } else {
             val message = String.format("could not get CCC descriptor for characteristic %s", characteristic.uuid)
             throw IllegalArgumentException(message)
         }
