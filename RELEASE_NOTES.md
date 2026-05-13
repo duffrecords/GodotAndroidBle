@@ -1,2 +1,4 @@
 Changes in this Release
-- UPGRADE: Support Godot 4.6.2 and Kotlin 2.2.21
+- FEATURE: Adds `disconnectFromDevice() to allow explicit BLE disconnection
+- FEATURE: Handle batch scan results (from upstream BLESSED library)
+- FEATURE: Optionally skip CCC descriptor check (from upstream BLESSED library)
