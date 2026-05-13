@@ -57,6 +57,8 @@ class GodotAndroidBle(godot: Godot): GodotPlugin(godot) {
 
     private val scope = CoroutineScope(Dispatchers.IO + SupervisorJob())
 
+    private val intentionalDisconnects = mutableSetOf<String>()
+
     // UUIDs for the Blood Pressure service (BLP)
     private val BLP_SERVICE_UUID: UUID = UUID.fromString("00001810-0000-1000-8000-00805f9b34fb")
     private val BLP_MEASUREMENT_CHARACTERISTIC_UUID: UUID = UUID.fromString("00002A35-0000-1000-8000-00805f9b34fb")
@@ -322,6 +324,7 @@ class GodotAndroidBle(godot: Godot): GodotPlugin(godot) {
                 peripheral.address,
                 status.name
             )
+            if (intentionalDisconnects.remove(peripheral.address)) return
             handler.postDelayed(
                 { centralManager.autoConnect(peripheral, bluetoothPeripheralCallback) },
                 15000
@@ -565,6 +568,13 @@ class GodotAndroidBle(godot: Godot): GodotPlugin(godot) {
         } else {
             centralManager.connect(peripheral, bluetoothPeripheralCallback)
         }
+    }
+
+    @UsedByGodot
+    fun disconnectFromDevice(address: String) {
+        val peripheral = centralManager.getPeripheral(address)
+        intentionalDisconnects.add(address)
+        centralManager.cancelConnection(peripheral)
     }
 }
 
