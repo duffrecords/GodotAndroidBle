@@ -75,7 +75,7 @@ dependencies {
     implementation(libs.androidx.material3)
     implementation(project(":blessed"))
     compileOnly(project(":godot-lib"))
-    //implementation("org.godotengine:godot:4.6.2.stable")
+    //implementation("org.godotengine:godot:4.7.0.stable")
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)
