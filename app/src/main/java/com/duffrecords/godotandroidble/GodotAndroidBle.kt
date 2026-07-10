@@ -152,7 +152,6 @@ class GodotAndroidBle(godot: Godot): GodotPlugin(godot) {
             peripheral.startNotify(CP_SERVICE_UUID, CP_MEASUREMENT_CHARACTERISTIC_UUID)
             peripheral.startNotify(RSC_SERVICE_UUID, RSC_MEASUREMENT_CHARACTERISTIC_UUID)
             peripheral.startNotify(FTMS_SERVICE_UUID, FTMS_ROWER_DATA_CHAR_UUID)
-            peripheral.startNotify(FTMS_SERVICE_UUID, FTMS_CONTROL_POINT_CHAR_UUID)
         }
 
         override fun onNotificationStateUpdate(peripheral: BluetoothPeripheral, characteristic: BluetoothGattCharacteristic, status: GattStatus) {
@@ -273,7 +272,7 @@ class GodotAndroidBle(godot: Godot): GodotPlugin(godot) {
                     )
                 }
                 FTMS_ROWER_DATA_CHAR_UUID -> {
-                    val measurement = FtmsRowerData.parse(value) ?: return
+                    val measurement = FtmsRowerMeasurement.fromBytes(value) ?: return
                     emitSignal(
                         FTMS_ROWER_DATA_RECEIVED,
                         measurement.toDictionary()
@@ -568,6 +567,15 @@ class GodotAndroidBle(godot: Godot): GodotPlugin(godot) {
     fun scanForName(name: String) {
         if(centralManager.isNotScanning)
             centralManager.scanForPeripheralsWithNames(setOf(name))
+    }
+
+    @UsedByGodot
+    fun scanForRowerService() {
+        if (centralManager.isNotScanning) {
+            centralManager.scanForPeripheralsWithServices(
+                setOf(FTMS_SERVICE_UUID)
+            )
+        }
     }
 
     @UsedByGodot
