@@ -9,8 +9,8 @@ import java.nio.ByteOrder
  */
 data class FtmsRowerMeasurement(
     val flags: UShort,
-    val strokeRate: UInt,
-    val strokeCount: UShort,
+    val strokeRate: UInt?,
+    val strokeCount: UShort?,
     val averageStrokeRate: UInt?,
     val totalDistanceMeters: Int?,
     val instantaneousPaceRaw: UShort?,
@@ -31,8 +31,8 @@ data class FtmsRowerMeasurement(
         val dict = Dictionary()
 
         dict["flags"] = flags.toInt()
-        dict["stroke_rate"] = strokeRate.toInt()
-        dict["stroke_count"] = strokeCount.toInt()
+        dict["stroke_rate"] = strokeRate?.toInt()
+        dict["stroke_count"] = strokeCount?.toInt()
         dict["average_stroke_rate"] = averageStrokeRate?.toInt()
         dict["total_distance_m"] = totalDistanceMeters
         dict["instantaneous_pace_raw"] = instantaneousPaceRaw?.toInt()
@@ -58,7 +58,9 @@ data class FtmsRowerMeasurement(
 
             try {
                 val flags = parser.getUInt16()
-
+                val moreData = (flags.toUInt() and 0x0001u) != 0u
+                var strokeRate: UInt? = null
+                var strokeCount: UShort? = null
                 val averageStrokeRatePresent = flags.toUInt() and 0x0002u > 0u
                 val totalDistancePresent = flags.toUInt() and 0x0004u > 0u
                 val instantaneousPacePresent = flags.toUInt() and 0x0008u > 0u
@@ -74,8 +76,10 @@ data class FtmsRowerMeasurement(
                 val elapsedTimePresent = flags.toUInt() and 0x2000u > 0u
                 val remainingTimePresent = flags.toUInt() and 0x4000u > 0u
 
-                val strokeRate = parser.getUInt8()
-                val strokeCount = parser.getUInt16()
+                if (!moreData) {
+                    strokeRate = parser.getUInt8()
+                    strokeCount = parser.getUInt16()
+                }
 
                 val averageStrokeRate =
                     if (averageStrokeRatePresent) parser.getUInt8() else null
@@ -119,20 +123,10 @@ data class FtmsRowerMeasurement(
                     if (metabolicEquivalentPresent) parser.getUInt8() else null
 
                 val elapsedTimeSeconds =
-                    if (elapsedTimePresent) {
-                        val b0 = parser.getUInt8().toInt()
-                        val b1 = parser.getUInt8().toInt()
-                        val b2 = parser.getUInt8().toInt()
-                        b0 or (b1 shl 8) or (b2 shl 16)
-                    } else null
+                    if (elapsedTimePresent) parser.getUInt16().toInt() else null
 
                 val remainingTimeSeconds =
-                    if (remainingTimePresent) {
-                        val b0 = parser.getUInt8().toInt()
-                        val b1 = parser.getUInt8().toInt()
-                        val b2 = parser.getUInt8().toInt()
-                        b0 or (b1 shl 8) or (b2 shl 16)
-                    } else null
+                    if (remainingTimePresent) parser.getUInt16().toInt() else null
 
                 return FtmsRowerMeasurement(
                     flags = flags,
